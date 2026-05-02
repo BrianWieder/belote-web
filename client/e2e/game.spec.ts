@@ -18,7 +18,7 @@ test.describe('Two-player Belote game', () => {
     await guestContext.close();
   });
 
-  test('full game round: create room, join, bid, play 8 tricks, see round summary', async () => {
+  test('full game round: create room, join, bid, play 16 tricks, see round summary', async () => {
     // 1. Host creates a room
     await hostPage.goto('/');
     await hostPage.getByTestId('create-room').click();
@@ -43,8 +43,8 @@ test.describe('Two-player Belote game', () => {
     await hostPage.getByTestId('play-area').waitFor({ timeout: 15_000 });
     await guestPage.getByTestId('play-area').waitFor({ timeout: 15_000 });
 
-    // 6. Play all 8 tricks
-    for (let trick = 0; trick < 8; trick++) {
+    // 6. Play all 16 tricks
+    for (let trick = 0; trick < 16; trick++) {
       await playOneTrick(hostPage, guestPage);
     }
 

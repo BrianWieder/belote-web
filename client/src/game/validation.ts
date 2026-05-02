@@ -11,19 +11,23 @@ import { cardStrength } from './scoring';
  */
 export function getPlayableCards(state: GameState): Card[] {
   const hand = state.hands[state.currentPlayer];
+  const tableauFaceUp = state.tableau[state.currentPlayer]
+    .map(s => s.faceUp)
+    .filter((c): c is Card => c !== null);
+  const allCards = [...hand, ...tableauFaceUp];
   const trumpSuit = state.trumpSuit!;
   const trick = state.currentTrick;
 
   // Leader can play anything
   if (trick.cards[0] === null && trick.cards[1] === null) {
-    return [...hand];
+    return allCards;
   }
 
   const leaderCard = trick.cards[trick.leader]!;
   const ledSuit = leaderCard.suit;
 
-  // Cards of the led suit in hand
-  const suitCards = hand.filter(c => c.suit === ledSuit);
+  // Cards of the led suit
+  const suitCards = allCards.filter(c => c.suit === ledSuit);
 
   if (ledSuit === trumpSuit) {
     // Led suit is trump - must follow with trump
@@ -33,8 +37,8 @@ export function getPlayableCards(state: GameState): Card[] {
       const higherTrumps = suitCards.filter(c => cardStrength(c, trumpSuit) > leaderStrength);
       return higherTrumps.length > 0 ? higherTrumps : suitCards;
     }
-    // No trump in hand - can play anything
-    return [...hand];
+    // No trump - can play anything
+    return allCards;
   }
 
   // Led suit is not trump
@@ -44,13 +48,13 @@ export function getPlayableCards(state: GameState): Card[] {
   }
 
   // Can't follow suit - must trump if possible
-  const trumpCards = hand.filter(c => c.suit === trumpSuit);
+  const trumpCards = allCards.filter(c => c.suit === trumpSuit);
   if (trumpCards.length > 0) {
     return trumpCards;
   }
 
   // Can't follow suit and can't trump - play anything
-  return [...hand];
+  return allCards;
 }
 
 export function isCardPlayable(state: GameState, card: Card): boolean {

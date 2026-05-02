@@ -39,10 +39,21 @@ describe('createInitialState', () => {
     const state = createInitialState('test', 0);
     expect(state.phase).toBe('bidding-round1');
   });
+
+  it('initializes empty tableau for both players', () => {
+    const state = createInitialState('test', 0);
+    for (const playerTableau of state.tableau) {
+      expect(playerTableau).toHaveLength(4);
+      for (const slot of playerTableau) {
+        expect(slot.faceDown).toBeNull();
+        expect(slot.faceUp).toBeNull();
+      }
+    }
+  });
 });
 
 describe('bidding', () => {
-  it('take in round 1 gives trump card to taker and deals remaining', () => {
+  it('take in round 1 gives trump card to taker, deals remaining and tableau', () => {
     const state = createInitialState('test', 0);
     const trumpCard = state.trumpCard!;
     const currentPlayer = state.currentPlayer;
@@ -57,6 +68,15 @@ describe('bidding', () => {
     expect(next.hands[currentPlayer].some(
       c => c.suit === trumpCard.suit && c.rank === trumpCard.rank
     )).toBe(true);
+    // Deck should be empty (all cards dealt to hands + tableau)
+    expect(next.deck).toHaveLength(0);
+    // All 8 tableau slots should be populated
+    for (const playerTableau of next.tableau) {
+      for (const slot of playerTableau) {
+        expect(slot.faceDown).not.toBeNull();
+        expect(slot.faceUp).not.toBeNull();
+      }
+    }
   });
 
   it('two passes move to round 2', () => {
@@ -72,7 +92,7 @@ describe('bidding', () => {
     expect(next.biddingRound).toBe(2);
   });
 
-  it('choosing suit in round 2 starts playing', () => {
+  it('choosing suit in round 2 starts playing and deals tableau', () => {
     const state = createInitialState('test', 0);
     const p1 = state.currentPlayer;
     const p2 = p1 === 0 ? 1 : 0;
@@ -91,6 +111,15 @@ describe('bidding', () => {
     expect(next.trumpSuit).toBe(chosenSuit);
     expect(next.hands[0]).toHaveLength(8);
     expect(next.hands[1]).toHaveLength(8);
+    // Deck should be empty
+    expect(next.deck).toHaveLength(0);
+    // Tableau should be populated
+    for (const playerTableau of next.tableau) {
+      for (const slot of playerTableau) {
+        expect(slot.faceDown).not.toBeNull();
+        expect(slot.faceUp).not.toBeNull();
+      }
+    }
   });
 
   it('cannot choose same suit as trump card in round 2', () => {
@@ -163,11 +192,11 @@ describe('playing', () => {
     expect(next.tricks[0].winner).toBeDefined();
   });
 
-  it('eight tricks ends the round', () => {
+  it('sixteen tricks ends the round', () => {
     let state = setupPlayingState('full-round');
 
-    // Play 8 tricks
-    for (let trick = 0; trick < 8; trick++) {
+    // Play 16 tricks
+    for (let trick = 0; trick < 16; trick++) {
       for (let play = 0; play < 2; play++) {
         const player = state.currentPlayer;
         const playable = getPlayableCards(state);
@@ -178,14 +207,69 @@ describe('playing', () => {
     expect(state.phase).toBe('round-over');
     expect(state.roundScores.length).toBeGreaterThan(0);
   });
+
+  it('playing a tableau card flips faceDown to faceUp', () => {
+    const state = setupPlayingState('tableau-flip-test');
+    const player = state.currentPlayer;
+
+    // Find a tableau slot with both faceDown and faceUp
+    const slot = state.tableau[player].find(s => s.faceDown && s.faceUp);
+    expect(slot).toBeDefined();
+
+    const faceUpCard = slot!.faceUp!;
+    const faceDownCard = slot!.faceDown!;
+    const slotIdx = state.tableau[player].indexOf(slot!);
+
+    // Play the face-up tableau card (need to make sure it's playable - leader can play anything)
+    // If it's not the leader, we need to set up the state properly
+    // Leader can play any card, so this should work
+    const next = applyAction(state, player, { type: 'play-card', card: cardToString(faceUpCard) });
+
+    // The face-down card should now be face-up
+    expect(next.tableau[player][slotIdx].faceUp).toEqual(faceDownCard);
+    expect(next.tableau[player][slotIdx].faceDown).toBeNull();
+  });
+
+  it('playing a tableau card with no faceDown leaves slot empty', () => {
+    // Use structuredClone to set up a state where a tableau slot has faceUp but no faceDown
+    const state = setupPlayingState('tableau-empty-slot');
+    const player = state.currentPlayer;
+
+    // Manually set up a slot with only faceUp (simulating after first flip)
+    const modified = structuredClone(state);
+    const card = modified.tableau[player][0].faceUp!;
+    modified.tableau[player][0].faceDown = null; // no face-down card
+
+    const next = applyAction(modified, player, { type: 'play-card', card: cardToString(card) });
+    // Both should now be null
+    expect(next.tableau[player][0].faceUp).toBeNull();
+    expect(next.tableau[player][0].faceDown).toBeNull();
+  });
 });
 
 describe('validation', () => {
-  it('leader can play any card', () => {
+  it('leader can play any card (hand + tableau)', () => {
     const state = createInitialState('test', 0);
     const next = applyAction(state, state.currentPlayer, { type: 'bid-take' });
     const playable = getPlayableCards(next);
-    expect(playable).toHaveLength(8);
+    // 8 hand cards + 4 face-up tableau cards = 12
+    expect(playable).toHaveLength(12);
+  });
+
+  it('getPlayableCards includes face-up tableau cards', () => {
+    const state = createInitialState('tableau-playable', 0);
+    const next = applyAction(state, state.currentPlayer, { type: 'bid-take' });
+    const player = next.currentPlayer;
+    const playable = getPlayableCards(next);
+
+    // Verify tableau face-up cards are included
+    const tableauFaceUp = next.tableau[player]
+      .map(s => s.faceUp)
+      .filter(c => c !== null);
+
+    for (const card of tableauFaceUp) {
+      expect(playable.some(p => p.suit === card!.suit && p.rank === card!.rank)).toBe(true);
+    }
   });
 });
 
@@ -194,8 +278,8 @@ describe('startNewRound', () => {
     let state = createInitialState('test', 0);
     state = applyAction(state, state.currentPlayer, { type: 'bid-take' });
 
-    // Play full round
-    for (let trick = 0; trick < 8; trick++) {
+    // Play full round (16 tricks)
+    for (let trick = 0; trick < 16; trick++) {
       for (let play = 0; play < 2; play++) {
         const playable = getPlayableCards(state);
         state = applyAction(state, state.currentPlayer, { type: 'play-card', card: cardToString(playable[0]) });
@@ -208,5 +292,12 @@ describe('startNewRound', () => {
     expect(newRound.hands[0]).toHaveLength(5);
     expect(newRound.hands[1]).toHaveLength(5);
     expect(newRound.gameScore).toEqual(state.gameScore); // preserved
+    // Tableau should be reset
+    for (const playerTableau of newRound.tableau) {
+      for (const slot of playerTableau) {
+        expect(slot.faceDown).toBeNull();
+        expect(slot.faceUp).toBeNull();
+      }
+    }
   });
 });
