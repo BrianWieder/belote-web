@@ -1,0 +1,23 @@
+node_modules/
+dist/
+
+# Vite
+client/node_modules/.vite/
+
+# Playwright
+client/test-results/
+client/playwright-report/
+
+# Environment
+.env
+.env.local
+
+# OS
+.DS_Store
+
+# Editor
+*.swp
+*.swo
+
+.claude
+.gemini
