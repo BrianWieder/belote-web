@@ -8,7 +8,10 @@ on:
     branches: [main, master]
 
 jobs:
-  build:
+  client-test:
+    defaults:
+      run:
+        working-directory: ./client
     runs-on: ubuntu-latest
 
     strategy:
@@ -29,4 +32,4 @@ jobs:
         run: npm install
 
       - name: Run tests
-        run: npm test
+        run: npx vitest
