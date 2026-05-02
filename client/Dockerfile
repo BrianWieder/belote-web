@@ -16,7 +16,7 @@ COPY package*.json ./
 RUN npm ci
 
 # Copy local code to the container image.
-COPY . ./
+COPY ./client ./
 
 # Build the app.
 RUN npm run build
@@ -28,7 +28,7 @@ FROM caddy
 WORKDIR /app
 
 # Copy Caddyfile to the container image.
-COPY Caddyfile ./
+COPY ./client/Caddyfile ./
 
 # Copy local code to the container image.
 RUN caddy fmt Caddyfile --overwrite
