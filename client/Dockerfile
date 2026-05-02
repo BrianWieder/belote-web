@@ -10,16 +10,13 @@ ENV NPM_CONFIG_FUND=false
 WORKDIR /app
 
 # Copy the files to the container image
-COPY ./client/package*.json ./
+COPY ./ ./
 
 # Install packages
 RUN npm ci
 
-# Copy local code to the container image.
-COPY ./client ./
-
 # Build the app.
-RUN npm run build
+RUN npm run build --workspace=client
 
 # Use the Caddy image
 FROM caddy
