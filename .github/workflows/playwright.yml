@@ -6,6 +6,9 @@ on:
     branches: [main, master]
 jobs:
   test:
+    defaults:
+      run:
+        working-directory: ./client
     timeout-minutes: 60
     runs-on: ubuntu-latest
     steps:
