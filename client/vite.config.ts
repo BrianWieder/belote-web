@@ -14,7 +14,4 @@ export default defineConfig({
   define: {
     global: 'globalThis',
   },
-  test: {
-    exclude: ['e2e/**', 'node_modules/**'],
-  },
 })
