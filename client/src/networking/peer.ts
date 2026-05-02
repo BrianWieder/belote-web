@@ -29,9 +29,42 @@ export function setStatusHandler(handler: StatusHandler): void {
 export function createPeer(isInitiator: boolean, code: string): void {
   roomCode = code;
 
+  const turnUsername = import.meta.env.VITE_TURN_USERNAME;
+  const turnCredential = import.meta.env.VITE_TURN_CREDENTIAL;
+
+  const iceServers: RTCIceServer[] = [
+    { urls: 'stun:stun.relay.metered.ca:80' },
+  ];
+
+  if (turnUsername && turnCredential) {
+    iceServers.push(
+      {
+        urls: 'turn:global.relay.metered.ca:80',
+        username: turnUsername,
+        credential: turnCredential,
+      },
+      {
+        urls: 'turn:global.relay.metered.ca:80?transport=tcp',
+        username: turnUsername,
+        credential: turnCredential,
+      },
+      {
+        urls: 'turn:global.relay.metered.ca:443',
+        username: turnUsername,
+        credential: turnCredential,
+      },
+      {
+        urls: 'turns:global.relay.metered.ca:443?transport=tcp',
+        username: turnUsername,
+        credential: turnCredential,
+      },
+    );
+  }
+
   peer = new SimplePeer({
     initiator: isInitiator,
     trickle: true,
+    config: { iceServers },
   });
 
   statusHandler?.('connecting');
