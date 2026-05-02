@@ -108,6 +108,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const { gameState, localPlayer } = get();
     if (!gameState || !gameState.trumpSuit) return false;
     if (!isBeloteCard(card, gameState.trumpSuit)) return false;
-    return hasBelotePair(gameState.hands[localPlayer], gameState.trumpSuit);
+    const handCards = gameState.hands[localPlayer];
+    const tableauFaceUp = gameState.tableau[localPlayer]
+      .map(s => s.faceUp)
+      .filter((c): c is import('../game/types').Card => c !== null);
+    return hasBelotePair([...handCards, ...tableauFaceUp], gameState.trumpSuit);
   },
 }));

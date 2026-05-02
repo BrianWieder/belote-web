@@ -6,6 +6,12 @@ export interface Card {
   rank: Rank;
 }
 
+export interface TableauSlot {
+  faceDown: Card | null;
+  faceUp: Card | null;
+}
+export type PlayerTableau = [TableauSlot, TableauSlot, TableauSlot, TableauSlot];
+
 export type PlayerID = 0 | 1;
 
 export type Phase =
@@ -54,6 +60,7 @@ export interface GameState {
   tricks: Trick[];
   currentTrick: Trick;
   tricksWon: [Card[], Card[]];
+  tableau: [PlayerTableau, PlayerTableau];
 
   beloteDeclared: [boolean, boolean];
   rebeloteDeclared: [boolean, boolean];

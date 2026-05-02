@@ -34,7 +34,7 @@ export function PlayArea() {
 
       {/* Trick count */}
       <div data-testid="trick-counter" className="text-xs text-green-400">
-        Trick {gameState.tricks.length + 1}/8
+        Trick {gameState.tricks.length + 1}/16
       </div>
 
       {/* Play area - opponent card on top, player card on bottom */}

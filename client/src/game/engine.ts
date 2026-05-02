@@ -1,4 +1,4 @@
-import type { Card, PlayerID, GameState, GameAction, Suit, Trick } from './types';
+import type { Card, PlayerID, GameState, GameAction, Suit, Trick, PlayerTableau } from './types';
 import { stringToCard } from './types';
 import { createDeck, shuffleDeck } from './deck';
 import { trickWinner, calculateRoundScore } from './scoring';
@@ -12,6 +12,29 @@ function otherPlayer(p: PlayerID): PlayerID {
 
 function emptyTrick(leader: PlayerID): Trick {
   return { cards: [null, null], leader };
+}
+
+function emptyTableau(): PlayerTableau {
+  return [
+    { faceDown: null, faceUp: null },
+    { faceDown: null, faceUp: null },
+    { faceDown: null, faceUp: null },
+    { faceDown: null, faceUp: null },
+  ];
+}
+
+function dealTableau(state: GameState): void {
+  const deck = state.deck;
+  // Deal face-down cards: alternate p0/p1 for each slot
+  for (let slot = 0; slot < 4; slot++) {
+    state.tableau[0][slot].faceDown = deck.splice(0, 1)[0];
+    state.tableau[1][slot].faceDown = deck.splice(0, 1)[0];
+  }
+  // Deal face-up cards on top: alternate p0/p1 for each slot
+  for (let slot = 0; slot < 4; slot++) {
+    state.tableau[0][slot].faceUp = deck.splice(0, 1)[0];
+    state.tableau[1][slot].faceUp = deck.splice(0, 1)[0];
+  }
 }
 
 export function createInitialState(seed: string, dealer: PlayerID): GameState {
@@ -30,6 +53,7 @@ export function createInitialState(seed: string, dealer: PlayerID): GameState {
     tricks: [],
     currentTrick: emptyTrick(otherPlayer(dealer)),
     tricksWon: [[], []],
+    tableau: [emptyTableau(), emptyTableau()],
     beloteDeclared: [false, false],
     rebeloteDeclared: [false, false],
     roundScores: [],
@@ -105,6 +129,7 @@ function handleBidTake(state: GameState, player: PlayerID): GameState {
 
   // Deal remaining 3 cards to each
   dealRemainingCards(state);
+  dealTableau(state);
 
   state.phase = 'playing';
   state.currentPlayer = otherPlayer(state.dealer);
@@ -178,6 +203,7 @@ function handleBidChoose(state: GameState, player: PlayerID, suit: Suit): GameSt
   state.trumpCard = null;
 
   dealRemainingCards(state);
+  dealTableau(state);
 
   state.phase = 'playing';
   state.currentPlayer = otherPlayer(state.dealer);
@@ -192,12 +218,23 @@ function handlePlayCard(state: GameState, player: PlayerID, cardStr: string): Ga
   const card = stringToCard(cardStr);
   if (!isCardPlayable(state, card)) return state;
 
-  // Remove card from hand
+  // Remove card from hand or tableau
   const handIdx = state.hands[player].findIndex(
     c => c.suit === card.suit && c.rank === card.rank
   );
-  if (handIdx === -1) return state;
-  state.hands[player].splice(handIdx, 1);
+  if (handIdx !== -1) {
+    state.hands[player].splice(handIdx, 1);
+  } else {
+    // Search tableau for face-up match
+    const tableau = state.tableau[player];
+    const slotIdx = tableau.findIndex(
+      s => s.faceUp && s.faceUp.suit === card.suit && s.faceUp.rank === card.rank
+    );
+    if (slotIdx === -1) return state;
+    // Flip: face-down becomes face-up, face-down clears
+    tableau[slotIdx].faceUp = tableau[slotIdx].faceDown;
+    tableau[slotIdx].faceDown = null;
+  }
 
   // Place card in trick
   state.currentTrick.cards[player] = card;
@@ -221,8 +258,8 @@ function handlePlayCard(state: GameState, player: PlayerID, cardStr: string): Ga
     state.tricksWon[winner].push(trickCards[0]!, trickCards[1]!);
     state.tricks.push({ ...state.currentTrick });
 
-    // Check if round is over (8 tricks played)
-    if (state.tricks.length === 8) {
+    // Check if round is over (16 tricks played)
+    if (state.tricks.length === 16) {
       return endRound(state);
     }
 
@@ -290,6 +327,7 @@ export function startNewRound(state: GameState): GameState {
   next.tricks = [];
   next.currentTrick = emptyTrick(otherPlayer(next.dealer));
   next.tricksWon = [[], []];
+  next.tableau = [emptyTableau(), emptyTableau()];
   next.beloteDeclared = [false, false];
   next.rebeloteDeclared = [false, false];
 
