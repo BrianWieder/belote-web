@@ -38,24 +38,24 @@ export function PlayArea() {
       </div>
 
       {/* Play area - opponent card on top, player card on bottom */}
-      <div data-testid="play-area" className="flex flex-col items-center gap-4 bg-green-700/50 rounded-xl px-12 py-6 min-h-36">
+      <div data-testid="play-area" className="flex flex-col items-center gap-3 sm:gap-4 bg-green-700/50 rounded-xl px-6 py-4 sm:px-12 sm:py-6 min-h-24 sm:min-h-36">
         {/* Opponent's played card */}
-        <div className="h-24">
+        <div className="h-[3.75rem] sm:h-24">
           {trick.cards[opponent] ? (
             <Card card={trick.cards[opponent]} />
           ) : (
-            <div className="w-16 h-24 rounded-lg border-2 border-dashed border-green-600 flex items-center justify-center text-green-500 text-xs">
+            <div className="w-10 h-[3.75rem] sm:w-16 sm:h-24 rounded-lg border-2 border-dashed border-green-600 flex items-center justify-center text-green-500 text-xs">
               {gameState.currentPlayer === opponent ? '...' : ''}
             </div>
           )}
         </div>
 
         {/* Player's played card */}
-        <div className="h-24">
+        <div className="h-[3.75rem] sm:h-24">
           {trick.cards[localPlayer] ? (
             <Card card={trick.cards[localPlayer]} />
           ) : (
-            <div className="w-16 h-24 rounded-lg border-2 border-dashed border-green-600 flex items-center justify-center text-green-500 text-xs">
+            <div className="w-10 h-[3.75rem] sm:w-16 sm:h-24 rounded-lg border-2 border-dashed border-green-600 flex items-center justify-center text-green-500 text-xs">
               {gameState.currentPlayer === localPlayer ? 'Your turn' : ''}
             </div>
           )}
