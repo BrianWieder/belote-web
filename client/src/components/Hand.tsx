@@ -34,7 +34,7 @@ export function Hand() {
   });
 
   return (
-    <div className="flex flex-wrap justify-center gap-1 sm:gap-2 px-2">
+    <div className="flex flex-wrap justify-center gap-0.5 sm:gap-2 px-1 sm:px-2">
       {sorted.map((card) => {
         const key = cardToString(card);
         const canPlay = isPlaying && isMyTurn && playableSet.has(key);

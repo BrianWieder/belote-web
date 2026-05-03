@@ -28,7 +28,7 @@ export function Tableau({ player }: TableauProps) {
   };
 
   return (
-    <div data-testid={`tableau-${player}`} className="flex justify-center gap-2 sm:gap-3">
+    <div data-testid={`tableau-${player}`} className="flex justify-center gap-1 sm:gap-3">
       {tableau.map((slot: TableauSlot, i: number) => {
         const isEmpty = !slot.faceDown && !slot.faceUp;
         if (isEmpty) {

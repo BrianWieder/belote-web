@@ -41,11 +41,11 @@ export function Lobby({ peerActions }: LobbyProps) {
   if (connectionStatus === 'in-lobby' && roomCode) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-green-900 text-white p-4">
-        <h1 className="text-4xl font-bold mb-8">Belote Maniée</h1>
+        <h1 className="text-3xl sm:text-4xl font-bold mb-8">Belote Maniée</h1>
         <div className="bg-green-800 rounded-xl p-8 shadow-xl text-center">
           <p className="text-lg mb-4">Waiting for opponent...</p>
           <p className="text-sm text-green-300 mb-2">Share this room code:</p>
-          <div data-testid="room-code" className="text-5xl font-mono font-bold tracking-widest bg-green-700 rounded-lg px-6 py-4 mb-4">
+          <div data-testid="room-code" className="text-4xl sm:text-5xl font-mono font-bold tracking-widest bg-green-700 rounded-lg px-4 py-3 sm:px-6 sm:py-4 mb-4">
             {roomCode}
           </div>
           <p className="text-xs text-green-400">The game will start when your opponent joins</p>
@@ -57,7 +57,7 @@ export function Lobby({ peerActions }: LobbyProps) {
   if (connectionStatus === 'connecting') {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-green-900 text-white">
-        <h1 className="text-4xl font-bold mb-8">Belote Maniée</h1>
+        <h1 className="text-3xl sm:text-4xl font-bold mb-8">Belote Maniée</h1>
         <p className="text-lg">Connecting to opponent...</p>
       </div>
     );
@@ -65,11 +65,11 @@ export function Lobby({ peerActions }: LobbyProps) {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-green-900 text-white p-4">
-      <h1 className="text-4xl font-bold mb-2">Belote Maniée</h1>
+      <h1 className="text-3xl sm:text-4xl font-bold mb-2">Belote Maniée</h1>
       <p className="text-green-300 mb-8">2-Player Card Game</p>
 
       <div className="flex flex-col sm:flex-row gap-6">
-        <div className="bg-green-800 rounded-xl p-6 shadow-xl w-72">
+        <div className="bg-green-800 rounded-xl p-6 shadow-xl w-full max-w-sm">
           <h2 className="text-xl font-semibold mb-4 text-center">Create Game</h2>
           <button
             data-testid="create-room"
@@ -81,7 +81,7 @@ export function Lobby({ peerActions }: LobbyProps) {
           </button>
         </div>
 
-        <div className="bg-green-800 rounded-xl p-6 shadow-xl w-72">
+        <div className="bg-green-800 rounded-xl p-6 shadow-xl w-full max-w-sm">
           <h2 className="text-xl font-semibold mb-4 text-center">Join Game</h2>
           <input
             data-testid="join-code-input"
