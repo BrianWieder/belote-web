@@ -19,6 +19,7 @@ import type { PeerMessage } from '../networking/peer';
 export function usePeer() {
   const {
     setConnectionStatus,
+    setConnectionError,
     setRoomCode,
     setIsHost,
     setLocalPlayer,
@@ -46,9 +47,20 @@ export function usePeer() {
 
     setStatusHandler((status) => {
       if (status === 'connected') {
+        setConnectionError(null);
         setConnectionStatus('connected');
       } else if (status === 'disconnected') {
-        setConnectionStatus('disconnected');
+        // If a game is in progress, mark disconnected. Otherwise we're still
+        // setting up the WebRTC connection — surface an error in the lobby
+        // instead of silently dropping the user back to the home screen.
+        const { gameState } = useGameStore.getState();
+        if (gameState) {
+          setConnectionStatus('disconnected');
+        } else {
+          setConnectionError(
+            "Couldn't establish a direct connection. This often happens on cellular networks. Try Wi-Fi, or tap Back and try again."
+          );
+        }
       }
     });
 
@@ -59,6 +71,7 @@ export function usePeer() {
   }, []);
 
   const hostGame = useCallback(async () => {
+    setConnectionError(null);
     await connectSignaling();
     const code = await createSignalingRoom();
     setRoomCode(code);
@@ -85,6 +98,7 @@ export function usePeer() {
   }, []);
 
   const joinGame = useCallback(async (code: string) => {
+    setConnectionError(null);
     await connectSignaling();
     const result = await joinSignalingRoom(code);
     if (!result.success) {
@@ -99,5 +113,11 @@ export function usePeer() {
     createPeer(false, code);
   }, []);
 
-  return { hostGame, joinGame };
+  const cancelConnection = useCallback(() => {
+    destroyPeer();
+    disconnectSignaling();
+    useGameStore.getState().resetConnection();
+  }, []);
+
+  return { hostGame, joinGame, cancelConnection };
 }
