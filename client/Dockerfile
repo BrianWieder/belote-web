@@ -7,11 +7,13 @@ ENV NPM_CONFIG_UPDATE_NOTIFIER=false
 ENV NPM_CONFIG_FUND=false
 
 ARG VITE_SERVER_URL
-# you could give this a default value as well like this:
-# ARG var_name=something_default
-
-# in any case, we use the ARG value here:
 ENV VITE_SERVER_URL=$VITE_SERVER_URL
+
+ARG VITE_TURN_USERNAME
+ENV VITE_TURN_USERNAME=$VITE_TURN_USERNAME
+
+ARG VITE_TURN_CREDENTIAL
+ENV VITE_TURN_CREDENTIAL=$VITE_TURN_CREDENTIAL
 
 # Create and change to the app directory.
 WORKDIR /app

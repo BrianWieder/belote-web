@@ -2,15 +2,19 @@ import { useState } from 'react';
 import { useGameStore } from '../store/gameStore';
 
 interface LobbyProps {
-  peerActions: { hostGame: () => Promise<void>; joinGame: (code: string) => Promise<void> };
+  peerActions: {
+    hostGame: () => Promise<void>;
+    joinGame: (code: string) => Promise<void>;
+    cancelConnection: () => void;
+  };
 }
 
 export function Lobby({ peerActions }: LobbyProps) {
   const [joinCode, setJoinCode] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { hostGame, joinGame } = peerActions;
-  const { connectionStatus, roomCode } = useGameStore();
+  const { hostGame, joinGame, cancelConnection } = peerActions;
+  const { connectionStatus, roomCode, connectionError } = useGameStore();
 
   const handleCreate = async () => {
     setLoading(true);
@@ -48,7 +52,16 @@ export function Lobby({ peerActions }: LobbyProps) {
           <div data-testid="room-code" className="text-4xl sm:text-5xl font-mono font-bold tracking-widest bg-green-700 rounded-lg px-4 py-3 sm:px-6 sm:py-4 mb-4">
             {roomCode}
           </div>
-          <p className="text-xs text-green-400">The game will start when your opponent joins</p>
+          <p className="text-xs text-green-400 mb-4">The game will start when your opponent joins</p>
+          {connectionError && (
+            <p className="text-sm text-red-300 bg-red-900/30 px-4 py-2 rounded mb-4">{connectionError}</p>
+          )}
+          <button
+            onClick={cancelConnection}
+            className="text-sm text-green-300 hover:text-white underline"
+          >
+            Back to home
+          </button>
         </div>
       </div>
     );
@@ -56,9 +69,20 @@ export function Lobby({ peerActions }: LobbyProps) {
 
   if (connectionStatus === 'connecting') {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-green-900 text-white">
+      <div className="flex flex-col items-center justify-center min-h-screen bg-green-900 text-white p-4">
         <h1 className="text-3xl sm:text-4xl font-bold mb-8">Belote Maniée</h1>
-        <p className="text-lg">Connecting to opponent...</p>
+        <div className="bg-green-800 rounded-xl p-8 shadow-xl text-center max-w-sm">
+          <p className="text-lg mb-4">Connecting to opponent...</p>
+          {connectionError && (
+            <p className="text-sm text-red-300 bg-red-900/30 px-4 py-2 rounded mb-4">{connectionError}</p>
+          )}
+          <button
+            onClick={cancelConnection}
+            className="text-sm text-green-300 hover:text-white underline"
+          >
+            Back to home
+          </button>
+        </div>
       </div>
     );
   }

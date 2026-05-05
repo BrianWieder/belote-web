@@ -9,6 +9,7 @@ export type ConnectionStatus = 'disconnected' | 'in-lobby' | 'connecting' | 'con
 interface GameStore {
   // Connection state
   connectionStatus: ConnectionStatus;
+  connectionError: string | null;
   roomCode: string | null;
   isHost: boolean;
   localPlayer: PlayerID;
@@ -18,6 +19,8 @@ interface GameStore {
 
   // Actions
   setConnectionStatus: (status: ConnectionStatus) => void;
+  setConnectionError: (err: string | null) => void;
+  resetConnection: () => void;
   setRoomCode: (code: string | null) => void;
   setIsHost: (isHost: boolean) => void;
   setLocalPlayer: (player: PlayerID) => void;
@@ -36,12 +39,22 @@ interface GameStore {
 
 export const useGameStore = create<GameStore>((set, get) => ({
   connectionStatus: 'disconnected',
+  connectionError: null,
   roomCode: null,
   isHost: false,
   localPlayer: 0,
   gameState: null,
 
   setConnectionStatus: (status) => set({ connectionStatus: status }),
+  setConnectionError: (err) => set({ connectionError: err }),
+  resetConnection: () => set({
+    connectionStatus: 'disconnected',
+    connectionError: null,
+    roomCode: null,
+    isHost: false,
+    localPlayer: 0,
+    gameState: null,
+  }),
   setRoomCode: (code) => set({ roomCode: code }),
   setIsHost: (isHost) => set({ isHost }),
   setLocalPlayer: (player) => set({ localPlayer: player }),
