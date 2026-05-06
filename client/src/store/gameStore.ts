@@ -1,8 +1,26 @@
 import { create } from 'zustand';
+import * as Sentry from '@sentry/react';
 import type { GameState, GameAction, PlayerID, Card } from '../game/types';
 import { createInitialState, applyAction, startNewRound } from '../game/engine';
 import { getPlayableCards, isBeloteCard, hasBelotePair } from '../game/validation';
 import { sendPeerMessage } from '../networking/peer';
+
+function setSentryGameContext(gameState: GameState | null, localPlayer: PlayerID) {
+  if (!gameState) return;
+  Sentry.setContext('game', {
+    seed: gameState.seed,
+    phase: gameState.phase,
+    dealer: gameState.dealer,
+    currentPlayer: gameState.currentPlayer,
+    trumpSuit: gameState.trumpSuit,
+    taker: gameState.taker,
+    sequenceNumber: gameState.sequenceNumber,
+    gameScore: gameState.gameScore,
+    roundNumber: gameState.roundScores.length + 1,
+  });
+  Sentry.setTag('playerRole', localPlayer === 0 ? 'host' : 'guest');
+  Sentry.setTag('gamePhase', gameState.phase);
+}
 
 export type ConnectionStatus = 'disconnected' | 'in-lobby' | 'connecting' | 'connected';
 
@@ -62,6 +80,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
   initGame: (seed, dealer) => {
     const state = createInitialState(seed, dealer);
     set({ gameState: state });
+    setSentryGameContext(state, get().localPlayer);
+    Sentry.addBreadcrumb({ category: 'game', message: `Game initialized (seed: ${seed}, dealer: ${dealer})`, level: 'info' });
   },
 
   performAction: (action) => {
@@ -72,6 +92,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (next.sequenceNumber === gameState.sequenceNumber) return; // action was rejected
 
     set({ gameState: next });
+    setSentryGameContext(next, localPlayer);
+    Sentry.addBreadcrumb({ category: 'game', message: `Local action: ${action.type}`, level: 'info', data: action });
     sendPeerMessage({
       type: 'game-action',
       action,
@@ -86,6 +108,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const remotePlayer: PlayerID = localPlayer === 0 ? 1 : 0;
     const next = applyAction(gameState, remotePlayer, action);
     set({ gameState: next });
+    setSentryGameContext(next, localPlayer);
+    Sentry.addBreadcrumb({ category: 'game', message: `Remote action: ${action.type}`, level: 'info', data: action });
   },
 
   nextRound: () => {
