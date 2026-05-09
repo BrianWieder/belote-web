@@ -11,8 +11,13 @@ export function GameBoard() {
   const { gameState, localPlayer } = useGame();
   if (!gameState) return null;
 
-  const isBidding = gameState.phase === 'bidding-round1' || gameState.phase === 'bidding-round2';
+  const isBidding =
+    gameState.phase === 'bidding-round1' ||
+    gameState.phase === 'bidding-round2' ||
+    gameState.phase === 'bidding-forced';
   const isPlaying = gameState.phase === 'playing';
+  // The dealer needs to see the tableau before choosing trump in a forced bid.
+  const showTableau = isPlaying || gameState.phase === 'bidding-forced';
   const opponent: PlayerID = localPlayer === 0 ? 1 : 0;
 
   return (
@@ -28,7 +33,7 @@ export function GameBoard() {
       </div>
 
       {/* Opponent tableau */}
-      {isPlaying && (
+      {showTableau && (
         <div className="px-1 sm:px-4 py-1">
           <Tableau player={opponent} />
         </div>
@@ -41,7 +46,7 @@ export function GameBoard() {
       </div>
 
       {/* Player tableau */}
-      {isPlaying && (
+      {showTableau && (
         <div className="px-1 sm:px-4 py-1">
           <Tableau player={localPlayer} />
         </div>

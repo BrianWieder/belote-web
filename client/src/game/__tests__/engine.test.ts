@@ -136,8 +136,10 @@ describe('bidding', () => {
     expect(next.phase).toBe('bidding-round2');
   });
 
-  it('four passes cause a redeal', () => {
+  it('four passes force the dealer to choose a trump suit', () => {
     const state = createInitialState('test', 0);
+    const dealer = state.dealer;
+    const trumpCard = state.trumpCard!;
     const p1 = state.currentPlayer;
     const p2 = p1 === 0 ? 1 : 0;
 
@@ -149,11 +151,59 @@ describe('bidding', () => {
     next = applyAction(next, next.currentPlayer, { type: 'bid-pass' });
     next = applyAction(next, next.currentPlayer, { type: 'bid-pass' });
 
-    // Should be back to round 1 with new deal
-    expect(next.phase).toBe('bidding-round1');
-    expect(next.hands[0]).toHaveLength(5);
-    expect(next.hands[1]).toHaveLength(5);
-    expect(next.trumpCard).not.toBeNull();
+    // Dealer is now forced to choose; cards and tableau are already out.
+    expect(next.phase).toBe('bidding-forced');
+    expect(next.currentPlayer).toBe(dealer);
+    expect(next.taker).toBe(dealer);
+    expect(next.hands[0]).toHaveLength(8);
+    expect(next.hands[1]).toHaveLength(8);
+    expect(next.trumpCard).toBeNull();
+    expect(next.hands[dealer].some(
+      c => c.suit === trumpCard.suit && c.rank === trumpCard.rank
+    )).toBe(true);
+    for (const playerTableau of next.tableau) {
+      for (const slot of playerTableau) {
+        expect(slot.faceDown).not.toBeNull();
+        expect(slot.faceUp).not.toBeNull();
+      }
+    }
+  });
+
+  it('forced bid lets the dealer pick any of the four suits', () => {
+    const state = createInitialState('test', 0);
+    const dealer = state.dealer;
+    const trumpCardSuit = state.trumpCard!.suit;
+    const p1 = state.currentPlayer;
+    const p2 = p1 === 0 ? 1 : 0;
+
+    let next = applyAction(state, p1, { type: 'bid-pass' });
+    next = applyAction(next, p2, { type: 'bid-pass' });
+    next = applyAction(next, next.currentPlayer, { type: 'bid-pass' });
+    next = applyAction(next, next.currentPlayer, { type: 'bid-pass' });
+
+    // Dealer can pick the original trump card's suit (any suit allowed)
+    next = applyAction(next, dealer, { type: 'bid-choose', suit: trumpCardSuit });
+    expect(next.phase).toBe('playing');
+    expect(next.trumpSuit).toBe(trumpCardSuit);
+    expect(next.taker).toBe(dealer);
+    expect(next.currentPlayer).toBe(dealer === 0 ? 1 : 0);
+  });
+
+  it('forced bid ignores choose action from non-dealer', () => {
+    const state = createInitialState('test', 0);
+    const dealer = state.dealer;
+    const nonDealer: PlayerID = dealer === 0 ? 1 : 0;
+    const p1 = state.currentPlayer;
+    const p2 = p1 === 0 ? 1 : 0;
+
+    let next = applyAction(state, p1, { type: 'bid-pass' });
+    next = applyAction(next, p2, { type: 'bid-pass' });
+    next = applyAction(next, next.currentPlayer, { type: 'bid-pass' });
+    next = applyAction(next, next.currentPlayer, { type: 'bid-pass' });
+
+    next = applyAction(next, nonDealer, { type: 'bid-choose', suit: 'hearts' });
+    expect(next.phase).toBe('bidding-forced');
+    expect(next.trumpSuit).toBeNull();
   });
 });
 
