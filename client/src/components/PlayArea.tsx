@@ -57,7 +57,7 @@ export function PlayArea() {
       {/* Play area - opponent card on top, player card on bottom */}
       <div data-testid="play-area" className="flex flex-col items-center gap-3 sm:gap-4 bg-green-700/50 rounded-xl px-6 py-4 sm:px-12 sm:py-6 min-h-24 sm:min-h-36">
         {/* Opponent's played card */}
-        <div className={`h-[3.75rem] sm:h-24 rounded-lg ${showingLastTrick && winner === opponent ? 'ring-2 ring-yellow-400' : ''}`}>
+        <div className={`h-[3.75rem] sm:h-24 ${showingLastTrick && winner !== opponent ? 'opacity-50' : ''}`}>
           {displayCards[opponent] ? (
             <Card card={displayCards[opponent]} />
           ) : (
@@ -66,7 +66,7 @@ export function PlayArea() {
         </div>
 
         {/* Player's played card */}
-        <div className={`h-[3.75rem] sm:h-24 rounded-lg ${showingLastTrick && winner === localPlayer ? 'ring-2 ring-yellow-400' : ''}`}>
+        <div className={`h-[3.75rem] sm:h-24 ${showingLastTrick && winner !== localPlayer ? 'opacity-50' : ''}`}>
           {displayCards[localPlayer] ? (
             <Card card={displayCards[localPlayer]} />
           ) : (
