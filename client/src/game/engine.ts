@@ -156,29 +156,20 @@ function handleBidPass(state: GameState, player: PlayerID): GameState {
   } else {
     // bidding-round2
     if (state.bidPasses >= 2) {
-      // Both passed in round 2 - redeal
-      state.dealer = otherPlayer(state.dealer);
-      state.phase = 'bidding-round1';
-      state.biddingRound = 1;
+      // Both passed in round 2 - the non-dealer is forced to take the bid.
+      // Give the face-up trump card to them, deal everything out, and let
+      // them choose any suit after seeing the tableau.
+      const forced = otherPlayer(state.dealer);
+      state.phase = 'bidding-forced';
       state.bidPasses = 0;
-      state.currentPlayer = otherPlayer(state.dealer);
+      state.taker = forced;
+      state.currentPlayer = forced;
+
+      state.hands[forced].push(state.trumpCard!);
       state.trumpCard = null;
-      state.trumpSuit = null;
-      state.taker = null;
 
-      // Increment round number by adding a dummy score entry then removing it
-      // Actually we just need to redeal with a new seed modifier
-      state.roundScores.push({
-        trickPoints: [0, 0],
-        beloteBonus: [0, 0],
-        lastTrickBonus: [0, 0],
-        dedans: false,
-        taker: 0,
-        trumpSuit: 'hearts',
-        finalPoints: [0, 0],
-      });
-
-      dealCards(state);
+      dealRemainingCards(state);
+      dealTableau(state);
     }
   }
 
@@ -186,24 +177,29 @@ function handleBidPass(state: GameState, player: PlayerID): GameState {
 }
 
 function handleBidChoose(state: GameState, player: PlayerID, suit: Suit): GameState {
-  if (state.phase !== 'bidding-round2' || state.currentPlayer !== player) return state;
+  if (state.currentPlayer !== player) return state;
 
-  // Can't choose the same suit as the trump card
-  if (suit === state.trumpCard!.suit) return state;
+  if (state.phase === 'bidding-round2') {
+    // Can't choose the same suit as the trump card
+    if (suit === state.trumpCard!.suit) return state;
 
-  state.taker = player;
-  state.trumpSuit = suit;
+    state.taker = player;
+    state.trumpSuit = suit;
 
-  // Trump card stays in the deck (not given to anyone in round 2)
-  // Deal remaining 3 cards to each
-  const deck = [...state.deck];
-  // Put trump card back in deck
-  deck.unshift(state.trumpCard!);
-  state.deck = deck;
-  state.trumpCard = null;
+    // Trump card stays in the deck (not given to anyone in round 2)
+    const deck = [...state.deck];
+    deck.unshift(state.trumpCard!);
+    state.deck = deck;
+    state.trumpCard = null;
 
-  dealRemainingCards(state);
-  dealTableau(state);
+    dealRemainingCards(state);
+    dealTableau(state);
+  } else if (state.phase === 'bidding-forced') {
+    // Cards and tableau are already dealt; dealer just picks any suit.
+    state.trumpSuit = suit;
+  } else {
+    return state;
+  }
 
   state.phase = 'playing';
   state.currentPlayer = otherPlayer(state.dealer);

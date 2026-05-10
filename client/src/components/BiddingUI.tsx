@@ -10,6 +10,7 @@ export function BiddingUI() {
 
   const isRound1 = gameState.phase === 'bidding-round1';
   const isRound2 = gameState.phase === 'bidding-round2';
+  const isForced = gameState.phase === 'bidding-forced';
   const trumpCard = gameState.trumpCard;
 
   return (
@@ -27,7 +28,9 @@ export function BiddingUI() {
 
       {isMyTurn ? (
         <div className="flex flex-col items-center gap-3">
-          <p data-testid="your-turn-to-bid" className="text-yellow-300 font-semibold">Your turn to bid</p>
+          <p data-testid="your-turn-to-bid" className="text-yellow-300 font-semibold">
+            {isForced ? 'You must choose trump' : 'Your turn to bid'}
+          </p>
 
           {isRound1 && (
             <div className="flex gap-3">
@@ -70,9 +73,24 @@ export function BiddingUI() {
               </button>
             </div>
           )}
+
+          {isForced && (
+            <div className="flex gap-2">
+              {ALL_SUITS.map((suit) => (
+                <SuitButton
+                  key={suit}
+                  suit={suit}
+                  onClick={() => bidChoose(suit)}
+                  data-testid={`bid-suit-${suit}`}
+                />
+              ))}
+            </div>
+          )}
         </div>
       ) : (
-        <p data-testid="waiting-for-opponent" className="text-green-300">Waiting for opponent to bid...</p>
+        <p data-testid="waiting-for-opponent" className="text-green-300">
+          {isForced ? 'Waiting for opponent to choose trump...' : 'Waiting for opponent to bid...'}
+        </p>
       )}
     </div>
   );

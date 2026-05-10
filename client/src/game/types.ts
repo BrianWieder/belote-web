@@ -17,6 +17,7 @@ export type PlayerID = 0 | 1;
 export type Phase =
   | 'bidding-round1'
   | 'bidding-round2'
+  | 'bidding-forced'
   | 'playing'
   | 'round-over'
   | 'game-over';
