@@ -60,6 +60,33 @@ test.describe('Two-player Belote game', () => {
     await expect(hostPage.getByTestId('scoreboard')).toBeVisible();
     await expect(guestPage.getByTestId('scoreboard')).toBeVisible();
   });
+
+  test('jack turned up: non-dealer is forced to take, pass button is hidden', async () => {
+    // jack-test-1 yields the Jack of diamonds as the trump card.
+    await hostPage.goto('/?seed=jack-test-1');
+    await hostPage.getByTestId('create-room').click();
+    const roomCode = (await hostPage.getByTestId('room-code').textContent())!.trim();
+
+    await guestPage.goto('/');
+    await guestPage.getByTestId('join-code-input').fill(roomCode);
+    await guestPage.getByTestId('join-room').click();
+
+    await hostPage.getByTestId('game-board').waitFor({ timeout: 15_000 });
+    await guestPage.getByTestId('game-board').waitFor({ timeout: 15_000 });
+
+    // Host is the dealer (player 0); guest is the non-dealer (player 1) and must take.
+    await expect(guestPage.getByTestId('your-turn-to-bid')).toHaveText('You must take');
+    await expect(guestPage.getByTestId('bid-take')).toBeVisible();
+    await expect(guestPage.getByTestId('bid-pass')).toHaveCount(0);
+    await expect(hostPage.getByTestId('waiting-for-opponent')).toContainText(
+      'Jack turned up — opponent must take',
+    );
+
+    // Take confirms and game proceeds to playing.
+    await guestPage.getByTestId('bid-take').click();
+    await hostPage.getByTestId('play-area').waitFor({ timeout: 5_000 });
+    await guestPage.getByTestId('play-area').waitFor({ timeout: 5_000 });
+  });
 });
 
 /**
