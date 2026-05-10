@@ -88,7 +88,10 @@ export function usePeer() {
         const store = useGameStore.getState();
         if (store.connectionStatus === 'connected') {
           clearInterval(checkConnection);
-          const seed = Math.random().toString(36).substring(2);
+          // Allow tests/debugging to pin a specific deck via ?seed= in the URL.
+          const seed =
+            new URLSearchParams(window.location.search).get('seed') ??
+            Math.random().toString(36).substring(2);
           const dealer: 0 | 1 = 0;
           sendPeerMessage({ type: 'sync-seed', seed, dealer });
           initGame(seed, dealer);
