@@ -33,6 +33,8 @@ export function createPeer(isInitiator: boolean, code: string): void {
   const turnCredential = import.meta.env.VITE_TURN_CREDENTIAL;
 
   const iceServers: RTCIceServer[] = [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:global.stun.twilio.com:3478' },
     { urls: 'stun:stun.relay.metered.ca:80' },
   ];
 
