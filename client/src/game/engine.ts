@@ -156,15 +156,16 @@ function handleBidPass(state: GameState, player: PlayerID): GameState {
   } else {
     // bidding-round2
     if (state.bidPasses >= 2) {
-      // Both passed in round 2 - dealer is forced to pick a suit.
-      // Give the face-up trump card to the dealer, deal everything out, and
-      // let them choose any suit after seeing the tableau.
+      // Both passed in round 2 - the non-dealer is forced to take the bid.
+      // Give the face-up trump card to them, deal everything out, and let
+      // them choose any suit after seeing the tableau.
+      const forced = otherPlayer(state.dealer);
       state.phase = 'bidding-forced';
       state.bidPasses = 0;
-      state.taker = state.dealer;
-      state.currentPlayer = state.dealer;
+      state.taker = forced;
+      state.currentPlayer = forced;
 
-      state.hands[state.dealer].push(state.trumpCard!);
+      state.hands[forced].push(state.trumpCard!);
       state.trumpCard = null;
 
       dealRemainingCards(state);
