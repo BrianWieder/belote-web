@@ -142,6 +142,9 @@ function handleBidPass(state: GameState, player: PlayerID): GameState {
   if (state.currentPlayer !== player) return state;
   if (state.phase !== 'bidding-round1' && state.phase !== 'bidding-round2') return state;
 
+  // Jack turned up: non-dealer is forced to take, so passes are rejected in round 1.
+  if (state.phase === 'bidding-round1' && state.trumpCard?.rank === 'J') return state;
+
   state.bidPasses++;
   state.currentPlayer = otherPlayer(player);
 

@@ -79,6 +79,28 @@ describe('bidding', () => {
     }
   });
 
+  it('non-dealer cannot pass in round 1 when trump card is a Jack', () => {
+    const state = createInitialState('test', 0);
+    state.trumpCard = { suit: 'hearts', rank: 'J' };
+    const nonDealer = state.currentPlayer;
+
+    const next = applyAction(state, nonDealer, { type: 'bid-pass' });
+    expect(next.phase).toBe('bidding-round1');
+    expect(next.bidPasses).toBe(0);
+    expect(next.currentPlayer).toBe(nonDealer);
+  });
+
+  it('non-dealer can still take in round 1 when trump card is a Jack', () => {
+    const state = createInitialState('test', 0);
+    state.trumpCard = { suit: 'hearts', rank: 'J' };
+    const nonDealer = state.currentPlayer;
+
+    const next = applyAction(state, nonDealer, { type: 'bid-take' });
+    expect(next.phase).toBe('playing');
+    expect(next.trumpSuit).toBe('hearts');
+    expect(next.taker).toBe(nonDealer);
+  });
+
   it('two passes move to round 2', () => {
     const state = createInitialState('test', 0);
     const p1 = state.currentPlayer;

@@ -12,13 +12,18 @@ export function BiddingUI() {
   const isRound2 = gameState.phase === 'bidding-round2';
   const isForced = gameState.phase === 'bidding-forced';
   const trumpCard = gameState.trumpCard;
+  const jackForced = isRound1 && trumpCard?.rank === 'J';
 
   return (
     <div className="flex flex-col items-center gap-4">
       {trumpCard && (
         <div className="text-center">
           <p className="text-green-300 text-sm mb-2">
-            {isRound1 ? 'Take with this trump?' : 'Choose a different suit'}
+            {isRound1
+              ? jackForced
+                ? 'Jack turned up — non-dealer must take'
+                : 'Take with this trump?'
+              : 'Choose a different suit'}
           </p>
           <div className="flex justify-center">
             <Card card={trumpCard} />
@@ -29,7 +34,7 @@ export function BiddingUI() {
       {isMyTurn ? (
         <div className="flex flex-col items-center gap-3">
           <p data-testid="your-turn-to-bid" className="text-yellow-300 font-semibold">
-            {isForced ? 'You must choose trump' : 'Your turn to bid'}
+            {isForced ? 'You must choose trump' : jackForced ? 'You must take' : 'Your turn to bid'}
           </p>
 
           {isRound1 && (
@@ -41,13 +46,15 @@ export function BiddingUI() {
               >
                 Take
               </button>
-              <button
-                data-testid="bid-pass"
-                onClick={bidPass}
-                className="bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-6 rounded-lg transition-colors"
-              >
-                Pass
-              </button>
+              {!jackForced && (
+                <button
+                  data-testid="bid-pass"
+                  onClick={bidPass}
+                  className="bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-6 rounded-lg transition-colors"
+                >
+                  Pass
+                </button>
+              )}
             </div>
           )}
 
@@ -89,7 +96,11 @@ export function BiddingUI() {
         </div>
       ) : (
         <p data-testid="waiting-for-opponent" className="text-green-300">
-          {isForced ? 'Waiting for opponent to choose trump...' : 'Waiting for opponent to bid...'}
+          {isForced
+            ? 'Waiting for opponent to choose trump...'
+            : jackForced
+              ? 'Jack turned up — opponent must take'
+              : 'Waiting for opponent to bid...'}
         </p>
       )}
     </div>
