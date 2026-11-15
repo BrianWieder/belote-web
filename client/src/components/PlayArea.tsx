@@ -1,93 +1,184 @@
+import { motion, useReducedMotion } from 'framer-motion';
 import { useGame } from '../hooks/useGame';
-import { Card } from './Card';
+import { Card, SuitIcon } from './Card';
+import { SUIT_NAMES, isRedSuit } from './suits';
 import type { PlayerID } from '../game/types';
-
-const SUIT_SYMBOLS = {
-  hearts: '♥',
-  diamonds: '♦',
-  clubs: '♣',
-  spades: '♠',
-};
 
 export function PlayArea() {
   const { gameState, localPlayer } = useGame();
+  const prefersReducedMotion = useReducedMotion();
+
   if (!gameState || gameState.phase !== 'playing') return null;
 
   const opponent: PlayerID = localPlayer === 0 ? 1 : 0;
   const trick = gameState.currentTrick;
-  const lastTrick = gameState.tricks.length > 0
-    ? gameState.tricks[gameState.tricks.length - 1]
-    : null;
+  const lastTrick =
+    gameState.tricks.length > 0
+      ? gameState.tricks[gameState.tricks.length - 1]
+      : null;
 
-  // Once a trick is resolved the engine clears currentTrick immediately, so
-  // the leader of that trick never sees the second card. Keep the previous
-  // trick on screen until someone plays into the next one.
+  // Keep the resolved trick visible on the baize until the next lead is played.
   const noCardsPlayed = trick.cards[0] === null && trick.cards[1] === null;
   const showingLastTrick = noCardsPlayed && lastTrick !== null;
   const displayCards = showingLastTrick ? lastTrick.cards : trick.cards;
-  const winner = showingLastTrick ? lastTrick.winner ?? null : null;
+  const winner = showingLastTrick ? (lastTrick.winner ?? null) : null;
 
-  const slotPlaceholder = (player: PlayerID, label: string) => (
-    <div className="w-10 h-[3.75rem] sm:w-16 sm:h-24 rounded-lg border-2 border-dashed border-green-600 flex items-center justify-center text-green-500 text-xs">
-      {!showingLastTrick && gameState.currentPlayer === player ? label : ''}
+  const isMyTurn = gameState.currentPlayer === localPlayer;
+  const trumpSuit = gameState.trumpSuit;
+  const redTrump = trumpSuit ? isRedSuit(trumpSuit) : false;
+
+  const myBeloteLabel = gameState.rebeloteDeclared[localPlayer]
+    ? 'Rebelote!'
+    : gameState.beloteDeclared[localPlayer]
+      ? 'Belote!'
+      : null;
+  const oppBeloteLabel = gameState.rebeloteDeclared[opponent]
+    ? 'Opp: Rebelote!'
+    : gameState.beloteDeclared[opponent]
+      ? 'Opp: Belote!'
+      : null;
+
+  const oppCard = displayCards[opponent];
+  const myCard = displayCards[localPlayer];
+
+  const slotPlaceholder = (active: boolean, label: string) => (
+    <div
+      className={`w-[3.1rem] h-[4.5rem] sm:w-[4.5rem] sm:h-[6.3rem] rounded-lg sm:rounded-xl border border-dashed flex items-center justify-center text-[11px] text-center px-1 transition-colors ${
+        active
+          ? 'border-[#d4a84b]/60 bg-[#d4a84b]/8 text-[#e3ba62] font-medium'
+          : 'border-[#efe9dc]/16 bg-[#0b1f16]/25 text-[#73907c]'
+      }`}
+    >
+      {label}
     </div>
   );
 
   return (
-    <div className="flex flex-col items-center gap-2">
-      {/* Trump indicator */}
-      {gameState.trumpSuit && (
-        <div className="text-sm text-green-300 mb-1">
-          Trump: <span className={gameState.trumpSuit === 'hearts' || gameState.trumpSuit === 'diamonds' ? 'text-red-400' : 'text-white'}>
-            {SUIT_SYMBOLS[gameState.trumpSuit]}
-          </span>
-          {gameState.taker !== null && (
-            <span className="ml-2">
-              ({gameState.taker === localPlayer ? 'You' : 'Opponent'} took)
+    <div className="flex flex-col items-center gap-2 w-full max-w-md">
+      {/* Contract, trick count, and Belote announcements */}
+      <div className="flex flex-wrap items-center justify-center gap-2 text-xs">
+        {trumpSuit && (
+          <div className="ardoise-bar rounded-full px-3 py-1 flex items-center gap-1.5">
+            <span className="text-[#a4bba9]">Trump:</span>
+            <span
+              className={`inline-flex items-center gap-1 font-semibold ${
+                redTrump ? 'text-[#e45a5e]' : 'text-[#efe9dc]'
+              }`}
+            >
+              <SuitIcon suit={trumpSuit} className="w-3.5 h-3.5" />
+              {SUIT_NAMES[trumpSuit]}
             </span>
-          )}
-        </div>
-      )}
+            {gameState.taker !== null && (
+              <span className="text-[#a4bba9]">
+                ({gameState.taker === localPlayer ? 'You' : 'Opp'})
+              </span>
+            )}
+          </div>
+        )}
 
-      {/* Trick count */}
-      <div data-testid="trick-counter" className="text-xs text-green-400">
-        Trick {gameState.tricks.length + (showingLastTrick ? 0 : 1)}/16
+        <div
+          data-testid="trick-counter"
+          className="ardoise-bar rounded-full px-3 py-1 text-[#a4bba9] tabular-nums"
+        >
+          Trick {gameState.tricks.length + (showingLastTrick ? 0 : 1)}/16
+        </div>
+
+        {(myBeloteLabel || oppBeloteLabel) && (
+          <div className="rounded-full bg-[#d4a84b]/20 border border-[#d4a84b]/50 px-2.5 py-0.5 font-display font-semibold text-[#e3ba62]">
+            {myBeloteLabel ?? oppBeloteLabel}
+          </div>
+        )}
       </div>
 
-      {/* Play area - opponent card on top, player card on bottom */}
-      <div data-testid="play-area" className="flex flex-col items-center gap-3 sm:gap-4 bg-green-700/50 rounded-xl px-6 py-4 sm:px-12 sm:py-6 min-h-24 sm:min-h-36">
-        {/* Opponent's played card */}
-        <div className={`h-[3.75rem] sm:h-24 ${showingLastTrick && winner !== opponent ? 'opacity-50' : ''}`}>
-          {displayCards[opponent] ? (
-            <Card card={displayCards[opponent]} />
-          ) : (
-            slotPlaceholder(opponent, '...')
-          )}
-        </div>
-
-        {/* Player's played card */}
-        <div className={`h-[3.75rem] sm:h-24 ${showingLastTrick && winner !== localPlayer ? 'opacity-50' : ''}`}>
-          {displayCards[localPlayer] ? (
-            <Card card={displayCards[localPlayer]} />
-          ) : (
-            slotPlaceholder(localPlayer, 'Your turn')
-          )}
-        </div>
-      </div>
-
-      {showingLastTrick && (
-        <div className="text-xs text-green-300 text-center">
-          <div>Last trick — {winner === localPlayer ? 'you won' : 'opponent won'}</div>
-          <div className={`mt-1 font-semibold ${gameState.currentPlayer === localPlayer ? 'text-yellow-300' : 'text-green-400'}`}>
-            {gameState.currentPlayer === localPlayer ? 'Your turn — lead a card' : "Opponent's turn to lead"}
+      {/* Center pli mat — cards placed side-by-side with natural table offset */}
+      <div
+        data-testid="play-area"
+        className="tapis-ring rounded-2xl px-7 py-3.5 sm:px-11 sm:py-5 flex items-center justify-center gap-5 sm:gap-8"
+      >
+        {/* Opponent's card */}
+        <div className="flex flex-col items-center gap-1">
+          <span className="text-[11px] text-[#a4bba9]">Opponent</span>
+          <div
+            className={`-translate-y-0.5 -rotate-2 transition-opacity ${
+              showingLastTrick && winner !== opponent ? 'opacity-45' : ''
+            }`}
+          >
+            {oppCard ? (
+              <motion.div
+                key={`opp-${oppCard.rank}-${oppCard.suit}-${gameState.tricks.length}`}
+                initial={prefersReducedMotion ? false : { opacity: 0, y: -10, scale: 0.94 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
+              >
+                <Card
+                  card={oppCard}
+                  isTrump={Boolean(trumpSuit && oppCard.suit === trumpSuit)}
+                  decorative
+                />
+              </motion.div>
+            ) : (
+              slotPlaceholder(!showingLastTrick && !isMyTurn, !showingLastTrick && !isMyTurn ? 'Thinking' : '')
+            )}
           </div>
         </div>
-      )}
 
-      {/* Score display */}
-      <div className="flex gap-6 text-sm text-green-300">
-        <span>You: {gameState.tricksWon[localPlayer].length / 2} tricks</span>
-        <span>Opp: {gameState.tricksWon[opponent].length / 2} tricks</span>
+        {/* Local player's card */}
+        <div className="flex flex-col items-center gap-1">
+          <div
+            className={`translate-y-0.5 rotate-2 transition-opacity ${
+              showingLastTrick && winner !== localPlayer ? 'opacity-45' : ''
+            }`}
+          >
+            {myCard ? (
+              <motion.div
+                key={`me-${myCard.rank}-${myCard.suit}-${gameState.tricks.length}`}
+                initial={prefersReducedMotion ? false : { opacity: 0, y: 10, scale: 0.94 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
+              >
+                <Card
+                  card={myCard}
+                  isTrump={Boolean(trumpSuit && myCard.suit === trumpSuit)}
+                  decorative
+                />
+              </motion.div>
+            ) : (
+              slotPlaceholder(!showingLastTrick && isMyTurn, !showingLastTrick && isMyTurn ? 'Play card' : '')
+            )}
+          </div>
+          <span className="text-[11px] text-[#a4bba9]">You</span>
+        </div>
+      </div>
+
+      {/* Turn & trick tally footer */}
+      <div className="flex flex-col items-center gap-0.5 text-xs">
+        {showingLastTrick ? (
+          <div className="text-center">
+            <span className="text-[#a4bba9]">
+              Last trick won by {winner === localPlayer ? 'you' : 'opponent'}.{' '}
+            </span>
+            <span
+              className={`font-semibold ${
+                isMyTurn ? 'text-[#e3ba62]' : 'text-[#a4bba9]'
+              }`}
+            >
+              {isMyTurn ? 'Your turn to lead' : 'Opponent leads next'}
+            </span>
+          </div>
+        ) : (
+          <div
+            className={`font-medium ${
+              isMyTurn ? 'text-[#e3ba62]' : 'text-[#a4bba9]'
+            }`}
+          >
+            {isMyTurn ? 'Your turn to play' : "Opponent's turn"}
+          </div>
+        )}
+
+        <div className="flex items-center gap-4 text-[11px] text-[#73907c] tabular-nums">
+          <span>Your tricks: {gameState.tricksWon[localPlayer].length / 2}</span>
+          <span>Opponent: {gameState.tricksWon[opponent].length / 2}</span>
+        </div>
       </div>
     </div>
   );

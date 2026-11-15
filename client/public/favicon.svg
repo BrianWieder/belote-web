@@ -1,30 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
-  <defs>
-    <linearGradient id="cardBg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#1a1a2e"/>
-      <stop offset="100%" style="stop-color:#16213e"/>
-    </linearGradient>
-    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#e94560"/>
-      <stop offset="100%" style="stop-color:#ff6b6b"/>
-    </linearGradient>
-    <filter id="glow">
-      <feGaussianBlur stdDeviation="1.5" result="blur"/>
-      <feMerge>
-        <feMergeNode in="blur"/>
-        <feMergeNode in="SourceGraphic"/>
-      </feMerge>
-    </filter>
-  </defs>
-  <!-- Card background -->
-  <rect x="8" y="4" width="48" height="56" rx="6" ry="6" fill="url(#cardBg)" stroke="#e94560" stroke-width="2"/>
-  <!-- Inner border -->
-  <rect x="12" y="8" width="40" height="48" rx="3" ry="3" fill="none" stroke="rgba(233,69,96,0.25)" stroke-width="0.75"/>
-  <!-- Diamond suit - center -->
-  <path d="M32 16 L42 32 L32 48 L22 32 Z" fill="url(#accent)" filter="url(#glow)" opacity="0.9"/>
-  <!-- B letter overlay -->
-  <text x="32" y="38" font-family="Georgia, serif" font-size="22" font-weight="bold" fill="#ffffff" text-anchor="middle" dominant-baseline="central" opacity="0.95">B</text>
-  <!-- Corner suit marks -->
-  <path d="M17 14 L20 18 L17 22 L14 18 Z" fill="#e94560" opacity="0.7"/>
-  <path d="M47 42 L50 46 L47 50 L44 46 Z" fill="#e94560" opacity="0.7"/>
+  <rect x="8" y="4" width="48" height="56" rx="7" fill="#faf6ec" stroke="#d4a84b" stroke-width="2.5"/>
+  <rect x="12.5" y="8.5" width="39" height="47" rx="4" fill="none" stroke="#d8ceb4" stroke-width="1"/>
+  <path d="M32 16 C35 23 39 28 44 32 C39 36 35 41 32 48 C29 41 25 36 20 32 C25 28 29 23 32 16 Z" fill="#b8262a"/>
+  <circle cx="32" cy="32" r="3" fill="#faf6ec"/>
 </svg>

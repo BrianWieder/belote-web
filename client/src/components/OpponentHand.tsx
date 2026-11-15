@@ -8,17 +8,31 @@ export function OpponentHand() {
 
   const opponent: PlayerID = localPlayer === 0 ? 1 : 0;
   const count = gameState.hands[opponent].length;
+  const mid = (count - 1) / 2;
 
   return (
-    <div className="flex justify-center gap-1">
-      {Array.from({ length: count }).map((_, i) => (
-        <Card
-          key={i}
-          card={{ suit: 'spades', rank: '7' }}
-          faceDown
-          small
-        />
-      ))}
+    <div
+      aria-label={`Opponent holds ${count} ${count === 1 ? 'card' : 'cards'} in hand`}
+      className="min-h-11 sm:min-h-12 flex items-center justify-center"
+    >
+      <div className="flex justify-center items-center">
+        {Array.from({ length: count }).map((_, i) => {
+          const offset = i - mid;
+          const deg = offset * 2.2;
+          const lift = Math.abs(offset) * 1.2;
+          return (
+            <div
+              key={i}
+              style={{
+                transform: `translateY(${lift}px) rotate(${deg}deg)`,
+              }}
+              className={i > 0 ? '-ml-2 sm:-ml-1.5' : ''}
+            >
+              <Card card={{ suit: 'spades', rank: '7' }} faceDown size="xs" />
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
