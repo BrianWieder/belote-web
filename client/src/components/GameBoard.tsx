@@ -34,7 +34,7 @@ export function GameBoard() {
   return (
     <main
       data-testid="game-board"
-      className="tapis-surface flex flex-col justify-between min-h-[100svh] text-[#efe9dc] select-none overflow-x-hidden px-2 sm:px-4 pt-2.5 ultra-short:pt-1.5 pb-[max(0.85rem,env(safe-area-inset-bottom))] ultra-short:pb-[max(0.4rem,env(safe-area-inset-bottom))]"
+      className="tapis-surface flex flex-col justify-between h-full text-[#efe9dc] select-none overflow-hidden overscroll-none px-2 sm:px-4 pt-2.5 ultra-short:pt-1.5 pb-[max(0.85rem,env(safe-area-inset-bottom))] ultra-short:pb-[max(0.4rem,env(safe-area-inset-bottom))]"
     >
       {/* Top section: Scoreboard + Opponent zone */}
       <div className="flex flex-col items-center gap-2 ultra-short:gap-1">

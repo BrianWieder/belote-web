@@ -68,7 +68,7 @@ export function Lobby({ peerActions }: LobbyProps) {
 
   if (connectionStatus === 'in-lobby' && roomCode) {
     return (
-      <main className="tapis-surface min-h-[100svh] flex flex-col items-center justify-center px-4 py-8">
+      <main className="tapis-surface h-full overflow-y-auto overscroll-y-contain flex flex-col items-center justify-center px-4 py-8">
         <div className="w-full max-w-md text-center">
           <h1 className="font-display text-3xl sm:text-4xl font-semibold tracking-tight text-[#efe9dc] mb-6">
             Belote Maniée
@@ -124,7 +124,7 @@ export function Lobby({ peerActions }: LobbyProps) {
 
   if (connectionStatus === 'connecting') {
     return (
-      <main className="tapis-surface min-h-[100svh] flex flex-col items-center justify-center px-4 py-8">
+      <main className="tapis-surface h-full overflow-y-auto overscroll-y-contain flex flex-col items-center justify-center px-4 py-8">
         <div className="w-full max-w-md text-center">
           <h1 className="font-display text-3xl sm:text-4xl font-semibold tracking-tight text-[#efe9dc] mb-6">
             Belote Maniée
@@ -161,7 +161,7 @@ export function Lobby({ peerActions }: LobbyProps) {
   }
 
   return (
-    <main className="tapis-surface min-h-[100svh] flex flex-col items-center justify-center px-4 py-10">
+    <main className="tapis-surface h-full overflow-y-auto overscroll-y-contain flex flex-col items-center justify-center px-4 py-10">
       <div className="w-full max-w-md flex flex-col items-center">
         {/* Characteristic fanned piquet hand: Jack, 9, King, Queen */}
         <div
