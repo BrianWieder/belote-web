@@ -11,7 +11,6 @@ export function useGame() {
     nextRound,
     isMyTurn,
     getPlayableCards,
-    canAnnounceBelote,
   } = useGameStore();
 
   const playCard = useCallback((card: Card) => {
@@ -34,10 +33,6 @@ export function useGame() {
     performAction({ type: 'bid-choose', suit });
   }, [performAction, isMyTurn]);
 
-  const announceBelote = useCallback(() => {
-    performAction({ type: 'announce-belote' });
-  }, [performAction]);
-
   return {
     gameState,
     localPlayer,
@@ -45,10 +40,8 @@ export function useGame() {
     bidTake,
     bidPass,
     bidChoose,
-    announceBelote,
     nextRound,
     isMyTurn: isMyTurn(),
     playableCards: getPlayableCards(),
-    canAnnounceBelote,
   };
 }

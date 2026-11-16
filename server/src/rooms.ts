@@ -46,10 +46,6 @@ export function getRoom(code: string): Room | null {
   return rooms.get(code.toUpperCase()) ?? null;
 }
 
-export function removeRoom(code: string): void {
-  rooms.delete(code.toUpperCase());
-}
-
 export function removePlayerFromRooms(socketId: string): string[] {
   const removedCodes: string[] = [];
   for (const [code, room] of rooms) {

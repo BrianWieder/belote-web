@@ -49,14 +49,14 @@ Open two browser tabs to `http://localhost:5173`. One player creates a room, the
 
 Belote Maniee is a two-player French trick-taking card game using a 32-card deck (7 through Ace in each suit).
 
-- **Dealing**: 5 cards each, plus a face-up trump proposal card
-- **Bidding Round 1**: Players can "Take" (accept the face-up card's suit as trump) or "Pass"
-- **Bidding Round 2**: If both pass, players can choose a different suit as trump or pass again. If all pass again, cards are redealt.
-- **Playing**: 8 tricks. Must follow suit; must trump if unable to follow; must overtrump if possible.
+- **Dealing**: 5 cards each, plus a face-up trump proposal card. After the bid is taken, each player is dealt up to 8 cards and a 4-slot tableau (face-down card with a face-up card on top).
+- **Bidding Round 1**: Players can "Take" (accept the face-up card's suit as trump) or "Pass". If the face-up card is a Jack, the non-dealer is forced to take.
+- **Bidding Round 2**: If both pass, players can choose a different suit as trump or pass again. If all pass again, the non-dealer is forced to take and picks any suit.
+- **Playing**: 16 tricks. Must follow suit; must trump if unable to follow; must overtrump if possible.
 - **Trump card values**: J=20, 9=14, A=11, 10=10, K=4, Q=3
 - **Non-trump values**: A=11, 10=10, K=4, Q=3, J=2
-- **Belote**: Declaring King + Queen of trump scores 20 bonus points
-- **Dedans**: If the taker scores fewer trick points than the opponent, all 162 points go to the opponent
+- **Belote**: Playing both King and Queen of trump (belote/rebelote) scores 20 bonus points, provided you win at least one trick
+- **Dedans**: If the taker scores fewer trick points than the opponent, all 162 card points go to the opponent
 
 ## Testing
 

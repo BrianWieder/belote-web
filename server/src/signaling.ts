@@ -5,22 +5,30 @@ export function setupSignaling(io: Server): void {
   io.on('connection', (socket: Socket) => {
     console.log(`Client connected: ${socket.id}`);
 
-    socket.on('create-room', (callback: (data: { code: string }) => void) => {
+    socket.on('create-room', (callback?: (data: { code: string }) => void) => {
       const room = createRoom(socket.id);
       socket.join(room.code);
-      callback({ code: room.code });
+      if (typeof callback === 'function') {
+        callback({ code: room.code });
+      }
       console.log(`Room created: ${room.code} by ${socket.id}`);
     });
 
-    socket.on('join-room', (code: string, callback: (data: { success: boolean; error?: string }) => void) => {
+    socket.on('join-room', (code: string, callback?: (data: { success: boolean; error?: string }) => void) => {
       const room = joinRoom(code, socket.id);
+      const respond = (data: { success: boolean; error?: string }) => {
+        if (typeof callback === 'function') {
+          callback(data);
+        }
+      };
+
       if (!room) {
-        callback({ success: false, error: 'Room not found or full' });
+        respond({ success: false, error: 'Room not found or full' });
         return;
       }
 
       socket.join(room.code);
-      callback({ success: true });
+      respond({ success: true });
 
       // Notify host that guest joined
       io.to(room.hostSocketId).emit('peer-joined', { socketId: socket.id });
@@ -31,6 +39,10 @@ export function setupSignaling(io: Server): void {
     socket.on('signal', (data: { roomCode: string; signal: unknown }) => {
       const room = getRoom(data.roomCode);
       if (!room) return;
+
+      // Only relay for sockets that actually belong to the room
+      const isMember = socket.id === room.hostSocketId || socket.id === room.guestSocketId;
+      if (!isMember) return;
 
       // Send to the other peer in the room
       const targetId = socket.id === room.hostSocketId

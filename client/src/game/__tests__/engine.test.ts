@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { createInitialState, applyAction, startNewRound } from '../engine';
 import { getPlayableCards } from '../validation';
 import { cardToString } from '../types';
-import type { GameState, PlayerID, Suit } from '../types';
+import type { GameState, PlayerID, Suit, Card, PlayerTableau } from '../types';
 
 describe('createInitialState', () => {
   it('deals 5 cards to each player', () => {
@@ -370,5 +370,81 @@ describe('startNewRound', () => {
         expect(slot.faceUp).toBeNull();
       }
     }
+  });
+});
+
+describe('belote', () => {
+  const c = (rank: Card['rank'], suit: Suit): Card => ({ rank, suit });
+  const EMPTY_TABLEAU: PlayerTableau = [
+    { faceDown: null, faceUp: null },
+    { faceDown: null, faceUp: null },
+    { faceDown: null, faceUp: null },
+    { faceDown: null, faceUp: null },
+  ];
+
+  // Player 1 (non-dealer) with spades as trump and a hand we control.
+  function beloteState(player1Hand: Card[]): GameState {
+    const state = createInitialState('belote-test', 0);
+    const playing = applyAction(state, state.currentPlayer, { type: 'bid-take' });
+    const s = structuredClone(playing);
+    s.trumpSuit = 'spades';
+    s.hands[1] = player1Hand;
+    s.hands[0] = [
+      c('7', 'hearts'), c('8', 'hearts'), c('9', 'hearts'),
+      c('10', 'hearts'), c('J', 'hearts'), c('A', 'diamonds'),
+      c('7', 'diamonds'), c('8', 'diamonds'),
+    ];
+    s.tableau = [EMPTY_TABLEAU, EMPTY_TABLEAU];
+    s.currentTrick = { cards: [null, null], leader: 1 };
+    s.currentPlayer = 1;
+    return s;
+  }
+
+  it('declares belote on the first card and rebelote on the second', () => {
+    let state = beloteState([
+      c('K', 'spades'), c('Q', 'spades'),
+      c('A', 'hearts'), c('10', 'hearts'), c('9', 'hearts'),
+      c('8', 'hearts'), c('7', 'hearts'), c('A', 'diamonds'),
+    ]);
+
+    // Player 1 leads K of trump with the full pair in hand -> belote.
+    state = applyAction(state, 1, { type: 'play-card', card: 'K_spades' });
+    expect(state.beloteDeclared[1]).toBe(true);
+    expect(state.rebeloteDeclared[1]).toBe(false);
+
+    // Player 0 follows (no spades -> can play anything).
+    const playable0 = getPlayableCards(state);
+    state = applyAction(state, 0, { type: 'play-card', card: cardToString(playable0[0]) });
+
+    // Player 1 wins the trick (trump beats non-trump) and leads Q -> rebelote.
+    expect(state.currentPlayer).toBe(1);
+    state = applyAction(state, 1, { type: 'play-card', card: 'Q_spades' });
+    expect(state.beloteDeclared[1]).toBe(true);
+    expect(state.rebeloteDeclared[1]).toBe(true);
+  });
+
+  it('does not declare belote when only one card of the pair is held', () => {
+    const state = beloteState([
+      c('K', 'spades'), c('A', 'clubs'),
+      c('A', 'hearts'), c('10', 'hearts'), c('9', 'hearts'),
+      c('8', 'hearts'), c('7', 'hearts'), c('A', 'diamonds'),
+    ]);
+
+    const next = applyAction(state, 1, { type: 'play-card', card: 'K_spades' });
+    expect(next.beloteDeclared[1]).toBe(false);
+    expect(next.rebeloteDeclared[1]).toBe(false);
+  });
+
+  it('does not declare rebelote without a prior belote', () => {
+    // Only the Q is in hand; the K was never possessed.
+    const state = beloteState([
+      c('Q', 'spades'), c('A', 'clubs'),
+      c('A', 'hearts'), c('10', 'hearts'), c('9', 'hearts'),
+      c('8', 'hearts'), c('7', 'hearts'), c('A', 'diamonds'),
+    ]);
+
+    const next = applyAction(state, 1, { type: 'play-card', card: 'Q_spades' });
+    expect(next.beloteDeclared[1]).toBe(false);
+    expect(next.rebeloteDeclared[1]).toBe(false);
   });
 });

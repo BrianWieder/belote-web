@@ -14,8 +14,6 @@ export function Hand() {
     playCard,
     playableCards,
     isMyTurn,
-    canAnnounceBelote,
-    announceBelote,
   } = useGame();
   if (!gameState) return null;
 
@@ -28,10 +26,6 @@ export function Hand() {
   const handleCardClick = (card: CardType) => {
     if (!isMyTurn || !isPlaying) return;
     if (!playableSet.has(cardToString(card))) return;
-
-    if (canAnnounceBelote(card)) {
-      announceBelote();
-    }
 
     playCard(card);
   };

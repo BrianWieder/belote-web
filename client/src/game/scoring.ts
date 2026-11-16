@@ -26,7 +26,6 @@ export function trickWinner(
   cards: [Card, Card],
   leader: PlayerID,
   trumpSuit: Suit,
-  _ledSuit: Suit,
 ): PlayerID {
   const follower: PlayerID = leader === 0 ? 1 : 0;
   const leaderCard = cards[leader];
@@ -72,7 +71,8 @@ export function calculateRoundScore(
 
   const beloteBonusPts: [number, number] = [0, 0];
   for (const p of [0, 1] as PlayerID[]) {
-    if (beloteDeclared[p] && rebeloteDeclared[p]) {
+    // Belote/rebelote (20) requires playing both K and Q of trump and winning at least one trick.
+    if (beloteDeclared[p] && rebeloteDeclared[p] && tricksWon[p].length > 0) {
       beloteBonusPts[p] = 20;
     }
   }
@@ -89,11 +89,11 @@ export function calculateRoundScore(
   const finalPoints: [number, number] = [0, 0];
 
   if (dedans) {
-    // Defender gets all card points (162) + last trick bonus + both belote bonuses go to respective owners
-    finalPoints[defender] = 162;
-    // Belote bonus always goes to the team that declared it, even on dedans
-    finalPoints[0] += beloteBonusPts[0];
-    finalPoints[1] += beloteBonusPts[1];
+    // Defender takes all 162 card points. The last-trick bonus goes to its
+    // actual winner (kept even on dedans), and belote bonuses stay with
+    // the player who declared them.
+    finalPoints[taker] = lastTrickBonusPts[taker] + beloteBonusPts[taker];
+    finalPoints[defender] = 162 - lastTrickBonusPts[taker] + beloteBonusPts[defender];
   } else {
     finalPoints[0] = rawPoints[0];
     finalPoints[1] = rawPoints[1];

@@ -26,8 +26,7 @@ export type GameAction =
   | { type: 'bid-take' }
   | { type: 'bid-pass' }
   | { type: 'bid-choose'; suit: Suit }
-  | { type: 'play-card'; card: string }
-  | { type: 'announce-belote' };
+  | { type: 'play-card'; card: string };
 
 export interface Trick {
   cards: [Card | null, Card | null];

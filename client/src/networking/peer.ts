@@ -1,13 +1,13 @@
 import SimplePeer from 'simple-peer';
 import { getSocket, sendSignal } from './signaling';
-import type { GameAction } from '../game/types';
+import type { GameAction, GameState } from '../game/types';
 
 export type PeerMessage =
   | { type: 'sync-seed'; seed: string; dealer: 0 | 1 }
   | { type: 'game-action'; action: GameAction; seq: number }
-  | { type: 'ack'; seq: number }
-  | { type: 'heartbeat' }
-  | { type: 'new-round' };
+  | { type: 'new-round' }
+  | { type: 'resync-request' }
+  | { type: 'game-state'; state: GameState };
 
 type MessageHandler = (msg: PeerMessage) => void;
 type StatusHandler = (status: 'connecting' | 'connected' | 'disconnected') => void;
@@ -17,6 +17,7 @@ let peerConnected = false;
 let messageHandler: MessageHandler | null = null;
 let statusHandler: StatusHandler | null = null;
 let roomCode: string = '';
+let signalHandler: ((data: { signal: unknown }) => void) | null = null;
 
 export function setMessageHandler(handler: MessageHandler): void {
   messageHandler = handler;
@@ -103,9 +104,11 @@ export function createPeer(isInitiator: boolean, code: string): void {
 
   // Listen for signaling data from the other peer
   const socket = getSocket();
-  socket.on('signal', (data: { signal: unknown }) => {
+  if (signalHandler) socket.off('signal', signalHandler);
+  signalHandler = (data: { signal: unknown }) => {
     peer?.signal(data.signal as SimplePeer.SignalData);
-  });
+  };
+  socket.on('signal', signalHandler);
 }
 
 export function sendPeerMessage(msg: PeerMessage): void {

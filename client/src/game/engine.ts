@@ -1,8 +1,8 @@
-import type { Card, PlayerID, GameState, GameAction, Suit, Trick, PlayerTableau } from './types';
+import type { Card, PlayerID, GameState, GameAction, Suit, Trick, PlayerTableau, Rank } from './types';
 import { stringToCard } from './types';
 import { createDeck, shuffleDeck } from './deck';
 import { trickWinner, calculateRoundScore } from './scoring';
-import { isCardPlayable } from './validation';
+import { isCardPlayable, isBeloteCard, hasBelotePair } from './validation';
 
 const GAME_TARGET = 1000;
 
@@ -99,7 +99,6 @@ function dealRemainingCards(state: GameState): void {
 
 export function applyAction(state: GameState, player: PlayerID, action: GameAction): GameState {
   const next = structuredClone(state);
-  next.sequenceNumber++;
 
   switch (action.type) {
     case 'bid-take':
@@ -110,8 +109,6 @@ export function applyAction(state: GameState, player: PlayerID, action: GameActi
       return handleBidChoose(next, player, action.suit);
     case 'play-card':
       return handlePlayCard(next, player, action.card);
-    case 'announce-belote':
-      return handleAnnounceBelote(next, player);
     default:
       return next;
   }
@@ -135,6 +132,7 @@ function handleBidTake(state: GameState, player: PlayerID): GameState {
   state.currentPlayer = otherPlayer(state.dealer);
   state.currentTrick = emptyTrick(otherPlayer(state.dealer));
 
+  state.sequenceNumber++;
   return state;
 }
 
@@ -176,6 +174,7 @@ function handleBidPass(state: GameState, player: PlayerID): GameState {
     }
   }
 
+  state.sequenceNumber++;
   return state;
 }
 
@@ -208,6 +207,7 @@ function handleBidChoose(state: GameState, player: PlayerID, suit: Suit): GameSt
   state.currentPlayer = otherPlayer(state.dealer);
   state.currentTrick = emptyTrick(otherPlayer(state.dealer));
 
+  state.sequenceNumber++;
   return state;
 }
 
@@ -216,6 +216,11 @@ function handlePlayCard(state: GameState, player: PlayerID, cardStr: string): Ga
 
   const card = stringToCard(cardStr);
   if (!isCardPlayable(state, card)) return state;
+
+  // Announce belote/rebelote when playing K or Q of trump. Checked before
+  // the card leaves the hand so the pair is still complete for the first
+  // card of a belote.
+  announceBeloteIfApplicable(state, player, card);
 
   // Remove card from hand or tableau
   const handIdx = state.hands[player].findIndex(
@@ -238,19 +243,16 @@ function handlePlayCard(state: GameState, player: PlayerID, cardStr: string): Ga
   // Place card in trick
   state.currentTrick.cards[player] = card;
 
-  // Auto-announce belote when playing K or Q of trump
-  // (handled separately via announce-belote action for explicit UI)
+  state.sequenceNumber++;
 
   // Check if trick is complete
   const trickCards = state.currentTrick.cards;
   if (trickCards[0] !== null && trickCards[1] !== null) {
     // Determine winner
-    const ledSuit = trickCards[state.currentTrick.leader]!.suit;
     const winner = trickWinner(
       trickCards as [Card, Card],
       state.currentTrick.leader,
       state.trumpSuit!,
-      ledSuit,
     );
 
     state.currentTrick.winner = winner;
@@ -273,16 +275,38 @@ function handlePlayCard(state: GameState, player: PlayerID, cardStr: string): Ga
   return state;
 }
 
-function handleAnnounceBelote(state: GameState, player: PlayerID): GameState {
-  if (state.phase !== 'playing') return state;
+/**
+ * Declares belote when a player plays the first card of a trump K+Q pair
+ * they still hold, and rebelote when they play the second card. This is
+ * evaluated from the shared state, so both clients agree automatically.
+ */
+function announceBeloteIfApplicable(state: GameState, player: PlayerID, card: Card): void {
+  const trumpSuit = state.trumpSuit;
+  if (!trumpSuit || !isBeloteCard(card, trumpSuit)) return;
+  if (state.rebeloteDeclared[player]) return;
 
-  if (!state.beloteDeclared[player]) {
+  const possessed: Card[] = [
+    ...state.hands[player],
+    ...state.tableau[player].flatMap(s => (s.faceUp ? [s.faceUp] : [])),
+  ];
+
+  // Both cards of the pair still in hand/tableau: first card played → belote.
+  if (hasBelotePair(possessed, trumpSuit)) {
     state.beloteDeclared[player] = true;
-  } else if (!state.rebeloteDeclared[player]) {
-    state.rebeloteDeclared[player] = true;
+    return;
   }
 
-  return state;
+  // Pair is broken: rebelote if we already played the other card this round.
+  if (state.beloteDeclared[player]) {
+    const otherRank: Rank = card.rank === 'K' ? 'Q' : 'K';
+    const playedByPlayer = state.tricks.flatMap(t => {
+      const c = t.cards[player];
+      return c ? [c] : [];
+    });
+    if (playedByPlayer.some(c => c.suit === trumpSuit && c.rank === otherRank)) {
+      state.rebeloteDeclared[player] = true;
+    }
+  }
 }
 
 function endRound(state: GameState): GameState {

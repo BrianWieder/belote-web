@@ -43,7 +43,7 @@ describe('trickWinner', () => {
   it('higher card of led suit wins', () => {
     const winner = trickWinner(
       [c('K', 'spades'), c('A', 'spades')],
-      0, 'hearts', 'spades',
+      0, 'hearts',
     );
     expect(winner).toBe(1);
   });
@@ -51,7 +51,7 @@ describe('trickWinner', () => {
   it('trump beats non-trump', () => {
     const winner = trickWinner(
       [c('A', 'spades'), c('7', 'hearts')],
-      0, 'hearts', 'spades',
+      0, 'hearts',
     );
     expect(winner).toBe(1);
   });
@@ -59,7 +59,7 @@ describe('trickWinner', () => {
   it('higher trump beats lower trump', () => {
     const winner = trickWinner(
       [c('9', 'hearts'), c('J', 'hearts')],
-      0, 'hearts', 'hearts',
+      0, 'hearts',
     );
     expect(winner).toBe(1);
   });
@@ -67,7 +67,7 @@ describe('trickWinner', () => {
   it('non-led non-trump suit loses', () => {
     const winner = trickWinner(
       [c('A', 'spades'), c('A', 'diamonds')],
-      0, 'hearts', 'spades',
+      0, 'hearts',
     );
     expect(winner).toBe(0);
   });
@@ -75,7 +75,7 @@ describe('trickWinner', () => {
   it('trump 9 beats trump 10 (trump order)', () => {
     const winner = trickWinner(
       [c('10', 'hearts'), c('9', 'hearts')],
-      0, 'hearts', 'hearts',
+      0, 'hearts',
     );
     expect(winner).toBe(1);
   });
@@ -113,15 +113,51 @@ describe('calculateRoundScore', () => {
     expect(score.dedans).toBe(false);
   });
 
-  it('belote bonus preserved even on dedans', () => {
+  it('belote/rebelote scores 20 when both are played and at least one trick is won, preserved on dedans', () => {
     const score = calculateRoundScore(
-      [[c('7', 'spades')], [c('A', 'hearts')]],
+      [[c('7', 'spades')], [c('A', 'hearts'), c('J', 'hearts')]],
       0, 'hearts',
       [true, false], [true, false],
       1,
     );
     expect(score.dedans).toBe(true);
+    expect(score.beloteBonus[0]).toBe(20);
     expect(score.finalPoints[0]).toBe(20); // belote bonus preserved
     expect(score.finalPoints[1]).toBe(162);
+  });
+
+  it('scores 0 belote bonus when only one card of the pair is played', () => {
+    const score = calculateRoundScore(
+      [[c('7', 'spades')], [c('A', 'hearts'), c('J', 'hearts')]],
+      0, 'hearts',
+      [true, false], [false, false],
+      1,
+    );
+    expect(score.beloteBonus[0]).toBe(0);
+    expect(score.finalPoints[0]).toBe(0);
+  });
+
+  it('scores 0 belote bonus when no tricks are won', () => {
+    const score = calculateRoundScore(
+      [[], [c('A', 'hearts'), c('J', 'hearts')]],
+      0, 'hearts',
+      [true, false], [true, false],
+      1,
+    );
+    expect(score.beloteBonus[0]).toBe(0);
+    expect(score.finalPoints[0]).toBe(0);
+  });
+
+  it('last trick bonus goes to its actual winner even on dedans', () => {
+    // Taker (player 0) loses all card points but keeps the 10 for the last trick
+    const score = calculateRoundScore(
+      [[c('7', 'spades')], [c('A', 'hearts'), c('J', 'hearts')]],
+      0, 'hearts',
+      [false, false], [false, false],
+      0,
+    );
+    expect(score.dedans).toBe(true);
+    expect(score.finalPoints[0]).toBe(10);
+    expect(score.finalPoints[1]).toBe(152);
   });
 });

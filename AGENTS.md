@@ -69,7 +69,7 @@ Received Message → peer.on('data') → messageHandler
 
 ### Game Phases
 
-`bidding-round1` → `bidding-round2` (if both pass) → `playing` → `round-over` → (next round or `game-over`)
+`bidding-round1` → `bidding-round2` (if both pass) → `bidding-forced` (if both pass again) → `playing` → `round-over` → (next round or `game-over`)
 
 ### Component Structure
 
