@@ -47,7 +47,7 @@ export function Hand() {
   return (
     <div
       aria-label="Your hand"
-      className="min-h-[4.6rem] sm:min-h-[6.5rem] flex items-center justify-center px-0.5 sm:px-3"
+      className="min-h-[4.6rem] tall-sm:min-h-[6.5rem] ultra-short:min-h-[4.2rem] flex items-center justify-center px-0.5 sm:px-3"
     >
       <div className="flex flex-nowrap sm:flex-wrap justify-center sm:gap-2">
         {sorted.map((card, index) => {

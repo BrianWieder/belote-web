@@ -50,9 +50,9 @@ interface CardProps {
 }
 
 const SIZE_CLASSES: Record<CardSize, string> = {
-  xs: 'w-8 h-11 rounded-md',
-  sm: 'w-11 h-[4.25rem] sm:w-14 sm:h-20 rounded-lg',
-  md: 'w-[3.1rem] h-[4.5rem] sm:w-[4.5rem] sm:h-[6.3rem] rounded-lg sm:rounded-xl',
+  xs: 'w-8 h-11 rounded-md ultra-short:w-7 ultra-short:h-9',
+  sm: 'w-11 h-[4.25rem] tall-sm:w-14 tall-sm:h-20 rounded-lg ultra-short:h-[3.85rem]',
+  md: 'w-[3.1rem] h-[4.5rem] tall-sm:w-[4.5rem] tall-sm:h-[6.3rem] rounded-lg tall-sm:rounded-xl ultra-short:h-[4.15rem]',
 };
 
 export function Card({
@@ -73,10 +73,10 @@ export function Card({
     return (
       <div
         aria-hidden="true"
-        className={`${sizeClass} playing-card-back p-[3px] sm:p-1 select-none`}
+        className={`${sizeClass} playing-card-back p-[3px] tall-sm:p-1 select-none`}
       >
-        <div className="w-full h-full rounded-[4px] sm:rounded-[6px] playing-card-back-inner flex items-center justify-center">
-          <div className="w-2.5 h-2.5 sm:w-3.5 sm:h-3.5 rotate-45 border border-[#d4a84b]/60 bg-[#d4a84b]/15" />
+        <div className="w-full h-full rounded-[4px] tall-sm:rounded-[6px] playing-card-back-inner flex items-center justify-center">
+          <div className="w-2.5 h-2.5 tall-sm:w-3.5 tall-sm:h-3.5 rotate-45 border border-[#d4a84b]/60 bg-[#d4a84b]/15" />
         </div>
       </div>
     );
@@ -89,18 +89,18 @@ export function Card({
 
   const indexRankSize =
     resolvedSize === 'sm'
-      ? 'text-[10px] sm:text-xs leading-[0.95]'
-      : 'text-[11px] sm:text-[15px] leading-[0.95]';
+      ? 'text-[10px] tall-sm:text-xs leading-[0.95]'
+      : 'text-[11px] tall-sm:text-[15px] leading-[0.95]';
   const cornerPipSize =
     resolvedSize === 'sm'
-      ? 'w-2 h-2 sm:w-2.5 sm:h-2.5'
-      : 'w-2 h-2 sm:w-3 sm:h-3';
+      ? 'w-2 h-2 tall-sm:w-2.5 tall-sm:h-2.5'
+      : 'w-2 h-2 tall-sm:w-3 tall-sm:h-3';
   const centerPipSize =
     resolvedSize === 'sm'
-      ? 'w-3.5 h-3.5 sm:w-5 sm:h-5'
+      ? 'w-3.5 h-3.5 tall-sm:w-5 tall-sm:h-5'
       : isAce
-        ? 'w-4 h-4 sm:w-7 sm:h-7'
-        : 'w-3.5 h-3.5 sm:w-6 sm:h-6';
+        ? 'w-4 h-4 tall-sm:w-7 tall-sm:h-7'
+        : 'w-3.5 h-3.5 tall-sm:w-6 tall-sm:h-6';
 
   const innerContent = (
     <>
@@ -108,7 +108,7 @@ export function Card({
       {(isCourt || isTrump) && (
         <span
           aria-hidden="true"
-          className={`pointer-events-none absolute inset-[3px] sm:inset-[5px] rounded-[5px] sm:rounded-[7px] border ${
+          className={`pointer-events-none absolute inset-[3px] tall-sm:inset-[5px] rounded-[5px] tall-sm:rounded-[7px] border ${
             isTrump
               ? 'border-[#d4a84b]/55'
               : red
@@ -158,7 +158,7 @@ export function Card({
     ${sizeClass}
     playing-card overflow-hidden
     flex flex-col items-center justify-between
-    px-1 py-[3px] sm:p-1.5
+    px-1 py-[3px] tall-sm:p-1.5
     select-none
     ${playable ? 'playing-card-playable' : 'cursor-default'}
     ${dimmed && !playable ? 'playing-card-dimmed' : ''}

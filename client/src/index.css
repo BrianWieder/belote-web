@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+@custom-variant tall-sm (@media (min-width: 640px) and (min-height: 700px));
+@custom-variant ultra-short (@media (max-height: 600px));
+
 :root {
   /* Core French bistrot card-table palette */
   --baize-outer: #0b1f16;

@@ -47,9 +47,9 @@ export function Tableau({ player }: TableauProps) {
             <div
               key={i}
               aria-hidden="true"
-              className="w-11 h-[5rem] sm:w-14 sm:h-[5.9rem] flex items-center justify-center"
+              className="w-11 h-[5rem] tall-sm:w-14 tall-sm:h-[5.9rem] ultra-short:h-[4.35rem] flex items-center justify-center"
             >
-              <div className="w-11 h-[4.25rem] sm:w-14 sm:h-20 rounded-lg border border-dashed border-[#efe9dc]/12 bg-[#0b1f16]/20" />
+              <div className="w-11 h-[4.25rem] tall-sm:w-14 tall-sm:h-20 ultra-short:h-[3.85rem] rounded-lg border border-dashed border-[#efe9dc]/12 bg-[#0b1f16]/20" />
             </div>
           );
         }
@@ -67,7 +67,7 @@ export function Tableau({ player }: TableauProps) {
         return (
           <div
             key={i}
-            className="relative w-11 h-[5rem] sm:w-14 sm:h-[5.9rem]"
+            className="relative w-11 h-[5rem] tall-sm:w-14 tall-sm:h-[5.9rem] ultra-short:h-[4.35rem]"
           >
             {/* Buried face-down card */}
             {slot.faceDown && (
@@ -80,7 +80,9 @@ export function Tableau({ player }: TableauProps) {
             {faceUpCard && (
               <div
                 className={`absolute ${
-                  slot.faceDown ? 'top-3 sm:top-3.5' : 'top-1 sm:top-1.5'
+                  slot.faceDown
+                    ? 'top-3 tall-sm:top-3.5 ultra-short:top-2'
+                    : 'top-1 tall-sm:top-1.5 ultra-short:top-0.5'
                 } left-0`}
               >
                 <Card

@@ -13,7 +13,7 @@ export function OpponentHand() {
   return (
     <div
       aria-label={`Opponent holds ${count} ${count === 1 ? 'card' : 'cards'} in hand`}
-      className="min-h-11 sm:min-h-12 flex items-center justify-center"
+      className="min-h-11 tall-sm:min-h-12 ultra-short:min-h-9 flex items-center justify-center"
     >
       <div className="flex justify-center items-center">
         {Array.from({ length: count }).map((_, i) => {

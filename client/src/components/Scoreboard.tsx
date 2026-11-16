@@ -19,7 +19,7 @@ export function Scoreboard() {
   return (
     <header
       data-testid="scoreboard"
-      className="ardoise-bar w-full max-w-lg rounded-xl px-4 py-2 sm:px-5 sm:py-2.5"
+      className="ardoise-bar w-full max-w-lg rounded-xl px-4 py-2 tall-sm:px-5 tall-sm:py-2.5 ultra-short:py-1.5"
     >
       <div className="grid grid-cols-3 items-center gap-3">
         {/* Local player score */}

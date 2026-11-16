@@ -43,7 +43,7 @@ export function PlayArea() {
 
   const slotPlaceholder = (active: boolean, label: string) => (
     <div
-      className={`w-[3.1rem] h-[4.5rem] sm:w-[4.5rem] sm:h-[6.3rem] rounded-lg sm:rounded-xl border border-dashed flex items-center justify-center text-[11px] text-center px-1 transition-colors ${
+      className={`w-[3.1rem] h-[4.5rem] tall-sm:w-[4.5rem] tall-sm:h-[6.3rem] ultra-short:h-[4.15rem] rounded-lg tall-sm:rounded-xl border border-dashed flex items-center justify-center text-[11px] text-center px-1 transition-colors ${
         active
           ? 'border-[#d4a84b]/60 bg-[#d4a84b]/8 text-[#e3ba62] font-medium'
           : 'border-[#efe9dc]/16 bg-[#0b1f16]/25 text-[#73907c]'
@@ -54,11 +54,11 @@ export function PlayArea() {
   );
 
   return (
-    <div className="flex flex-col items-center gap-2 w-full max-w-md">
+    <div className="flex flex-col items-center gap-2 ultra-short:gap-1 w-full max-w-md">
       {/* Contract, trick count, and Belote announcements */}
       <div className="flex flex-wrap items-center justify-center gap-2 text-xs">
         {trumpSuit && (
-          <div className="ardoise-bar rounded-full px-3 py-1 flex items-center gap-1.5">
+          <div className="ardoise-bar rounded-full px-3 py-1 ultra-short:py-0.5 flex items-center gap-1.5">
             <span className="text-[#a4bba9]">Trump:</span>
             <span
               className={`inline-flex items-center gap-1 font-semibold ${
@@ -78,7 +78,7 @@ export function PlayArea() {
 
         <div
           data-testid="trick-counter"
-          className="ardoise-bar rounded-full px-3 py-1 text-[#a4bba9] tabular-nums"
+          className="ardoise-bar rounded-full px-3 py-1 ultra-short:py-0.5 text-[#a4bba9] tabular-nums"
         >
           Trick {gameState.tricks.length + (showingLastTrick ? 0 : 1)}/16
         </div>
@@ -93,7 +93,7 @@ export function PlayArea() {
       {/* Center pli mat — cards placed side-by-side with natural table offset */}
       <div
         data-testid="play-area"
-        className="tapis-ring rounded-2xl px-7 py-3.5 sm:px-11 sm:py-5 flex items-center justify-center gap-5 sm:gap-8"
+        className="tapis-ring rounded-2xl px-7 py-3.5 tall-sm:px-11 tall-sm:py-5 ultra-short:py-2 flex items-center justify-center gap-5 sm:gap-8"
       >
         {/* Opponent's card */}
         <div className="flex flex-col items-center gap-1">
