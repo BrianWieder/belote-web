@@ -25,6 +25,10 @@ export function GameBoard() {
   const showTableau = isPlaying || gameState.phase === 'bidding-forced';
   const opponent: PlayerID = localPlayer === 0 ? 1 : 0;
 
+  const isModalOpen =
+    gameState.phase === 'round-over' || gameState.phase === 'game-over';
+  const isDisconnected = connectionStatus === 'disconnected';
+
   const handleReturnToLobby = () => {
     destroyPeer();
     disconnectSignaling();
@@ -40,10 +44,10 @@ export function GameBoard() {
       <div className="flex flex-col items-center gap-2 ultra-short:gap-1">
         <Scoreboard />
 
-        {connectionStatus === 'disconnected' && (
+        {isDisconnected && !isModalOpen && (
           <div
             role="alert"
-            className="relative z-[60] w-full max-w-lg rounded-xl bg-[#5c1619]/90 border border-[#e45a5e]/40 px-4 py-2 text-xs sm:text-sm text-[#f7b4b6] flex items-center justify-between gap-3"
+            className="w-full max-w-lg rounded-xl bg-[#5c1619]/90 border border-[#e45a5e]/40 px-4 py-2 text-xs sm:text-sm text-[#f7b4b6] flex items-center justify-between gap-3"
           >
             <span>Connection to your opponent was lost.</span>
             <button
@@ -78,8 +82,8 @@ export function GameBoard() {
       </div>
 
       {/* End-of-round & end-of-game dialogs */}
-      <RoundSummary />
-      <GameOver />
+      <RoundSummary disconnected={isDisconnected} onReturnToLobby={handleReturnToLobby} />
+      <GameOver disconnected={isDisconnected} onReturnToLobby={handleReturnToLobby} />
     </main>
   );
 }

@@ -57,7 +57,7 @@ export function Hand() {
           const isTrump = Boolean(trumpSuit && card.suit === trumpSuit);
 
           return (
-            <div key={key} className={index > 0 ? '-ml-1.5 sm:ml-0' : ''}>
+            <div key={key} className={index > 0 ? '-ml-2 min-[380px]:-ml-1.5 sm:ml-0' : ''}>
               <Card
                 card={card}
                 playable={canPlay}

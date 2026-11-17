@@ -84,7 +84,12 @@ export function Scoreboard() {
   );
 }
 
-export function RoundSummary() {
+interface DialogDisconnectProps {
+  disconnected?: boolean;
+  onReturnToLobby?: () => void;
+}
+
+export function RoundSummary({ disconnected, onReturnToLobby }: DialogDisconnectProps) {
   const { gameState, localPlayer, nextRound } = useGame();
   if (!gameState || gameState.phase !== 'round-over') return null;
 
@@ -196,20 +201,38 @@ export function RoundSummary() {
           </div>
         </div>
 
-        <button
-          type="button"
-          data-testid="next-round"
-          onClick={nextRound}
-          className="btn-brass w-full font-semibold py-3 rounded-xl cursor-pointer"
-        >
-          Deal next round
-        </button>
+        {disconnected && onReturnToLobby ? (
+          <div className="space-y-2.5">
+            <p
+              role="alert"
+              className="rounded-xl bg-[#5c1619]/75 border border-[#e45a5e]/40 px-3.5 py-2 text-xs text-[#f7b4b6]"
+            >
+              Connection to your opponent was lost.
+            </p>
+            <button
+              type="button"
+              onClick={onReturnToLobby}
+              className="btn-slate w-full font-semibold py-3 rounded-xl cursor-pointer"
+            >
+              Return to lobby
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            data-testid="next-round"
+            onClick={nextRound}
+            className="btn-brass w-full font-semibold py-3 rounded-xl cursor-pointer"
+          >
+            Deal next round
+          </button>
+        )}
       </div>
     </div>
   );
 }
 
-export function GameOver() {
+export function GameOver({ disconnected, onReturnToLobby }: DialogDisconnectProps) {
   const { gameState, localPlayer } = useGame();
   if (!gameState || gameState.phase !== 'game-over') return null;
 
@@ -250,13 +273,31 @@ export function GameOver() {
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={() => window.location.reload()}
-          className="btn-brass w-full font-semibold py-3.5 px-8 rounded-xl cursor-pointer"
-        >
-          Start a new match
-        </button>
+        {disconnected && onReturnToLobby ? (
+          <div className="space-y-2.5">
+            <p
+              role="alert"
+              className="rounded-xl bg-[#5c1619]/75 border border-[#e45a5e]/40 px-3.5 py-2 text-xs text-[#f7b4b6]"
+            >
+              Connection to your opponent was lost.
+            </p>
+            <button
+              type="button"
+              onClick={onReturnToLobby}
+              className="btn-slate w-full font-semibold py-3.5 px-8 rounded-xl cursor-pointer"
+            >
+              Return to lobby
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="btn-brass w-full font-semibold py-3.5 px-8 rounded-xl cursor-pointer"
+          >
+            Start a new match
+          </button>
+        )}
       </div>
     </div>
   );
