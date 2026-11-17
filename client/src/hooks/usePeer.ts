@@ -12,6 +12,7 @@ import {
   setStatusHandler,
   sendPeerMessage,
   destroyPeer,
+  isPeerConnected,
 } from '../networking/peer';
 import { useGameStore } from '../store/gameStore';
 import type { PeerMessage } from '../networking/peer';
@@ -84,7 +85,7 @@ export function usePeer() {
       if (checkConnectionRef.current) clearInterval(checkConnectionRef.current);
       checkConnectionRef.current = setInterval(() => {
         const store = useGameStore.getState();
-        if (store.connectionStatus === 'connected') {
+        if (store.connectionStatus === 'connected' && store.isHost) {
           if (checkConnectionRef.current) clearInterval(checkConnectionRef.current);
           checkConnectionRef.current = null;
           // Allow tests/debugging to pin a specific deck via ?seed= in the URL.
@@ -99,6 +100,15 @@ export function usePeer() {
     };
 
     const handlePeerDisconnected = () => {
+      // Clear any pending host seed-sync polling from this room.
+      if (checkConnectionRef.current) {
+        clearInterval(checkConnectionRef.current);
+        checkConnectionRef.current = null;
+      }
+      // Once the WebRTC data channel is open, signaling disconnects shouldn't
+      // block an active game; real peer drops are reported by peer.ts.
+      if (isPeerConnected()) return;
+      destroyPeer();
       setConnectionStatus('disconnected');
     };
 
