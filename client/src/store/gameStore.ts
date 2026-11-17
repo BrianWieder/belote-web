@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import * as Sentry from '@sentry/react';
 import type { GameState, GameAction, PlayerID, Card } from '../game/types';
 import { createInitialState, applyAction, startNewRound } from '../game/engine';
-import { getPlayableCards, isBeloteCard, hasBelotePair } from '../game/validation';
+import { getPlayableCards } from '../game/validation';
 import { sendPeerMessage } from '../networking/peer';
 
 function setSentryGameContext(gameState: GameState | null, localPlayer: PlayerID) {
@@ -45,14 +45,16 @@ interface GameStore {
 
   initGame: (seed: string, dealer: PlayerID) => void;
   performAction: (action: GameAction) => void;
-  receiveAction: (action: GameAction) => void;
+  receiveAction: (action: GameAction, seq: number) => void;
   nextRound: () => void;
   receiveNextRound: () => void;
+  requestResync: () => void;
+  sendFullState: () => void;
+  receiveGameState: (state: GameState) => void;
 
   // Derived
   getPlayableCards: () => Card[];
   isMyTurn: () => boolean;
-  canAnnounceBelote: (card: Card) => boolean;
 }
 
 export const useGameStore = create<GameStore>((set, get) => ({
@@ -101,15 +103,50 @@ export const useGameStore = create<GameStore>((set, get) => ({
     });
   },
 
-  receiveAction: (action) => {
+  receiveAction: (action, seq) => {
     const { gameState, localPlayer } = get();
     if (!gameState) return;
 
+    const expectedSeq = gameState.sequenceNumber + 1;
+    if (seq !== expectedSeq) {
+      // Out-of-order or dropped message: ask the other peer for a full state.
+      Sentry.addBreadcrumb({
+        category: 'game',
+        message: `Sequence mismatch (got ${seq}, expected ${expectedSeq}) — requesting resync`,
+        level: 'warning',
+      });
+      sendPeerMessage({ type: 'resync-request' });
+      return;
+    }
+
     const remotePlayer: PlayerID = localPlayer === 0 ? 1 : 0;
     const next = applyAction(gameState, remotePlayer, action);
+    if (next.sequenceNumber === gameState.sequenceNumber) return; // action was rejected
+
     set({ gameState: next });
     setSentryGameContext(next, localPlayer);
     Sentry.addBreadcrumb({ category: 'game', message: `Remote action: ${action.type}`, level: 'info', data: action });
+  },
+
+  requestResync: () => {
+    sendPeerMessage({ type: 'resync-request' });
+  },
+
+  sendFullState: () => {
+    const { gameState } = get();
+    if (gameState) {
+      sendPeerMessage({ type: 'game-state', state: gameState });
+    }
+  },
+
+  receiveGameState: (state) => {
+    const { gameState, localPlayer } = get();
+    // Only accept a resync from a matching seed; applying a foreign state
+    // would corrupt the local game.
+    if (!gameState || state.seed !== gameState.seed) return;
+    set({ gameState: state });
+    setSentryGameContext(state, localPlayer);
+    Sentry.addBreadcrumb({ category: 'game', message: 'Received full state resync', level: 'info' });
   },
 
   nextRound: () => {
@@ -139,16 +176,5 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const { gameState, localPlayer } = get();
     if (!gameState) return false;
     return gameState.currentPlayer === localPlayer;
-  },
-
-  canAnnounceBelote: (card) => {
-    const { gameState, localPlayer } = get();
-    if (!gameState || !gameState.trumpSuit) return false;
-    if (!isBeloteCard(card, gameState.trumpSuit)) return false;
-    const handCards = gameState.hands[localPlayer];
-    const tableauFaceUp = gameState.tableau[localPlayer]
-      .map(s => s.faceUp)
-      .filter((c): c is import('../game/types').Card => c !== null);
-    return hasBelotePair([...handCards, ...tableauFaceUp], gameState.trumpSuit);
   },
 }));

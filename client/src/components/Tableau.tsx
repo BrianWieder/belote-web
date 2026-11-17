@@ -14,8 +14,6 @@ export function Tableau({ player }: TableauProps) {
     playCard,
     playableCards,
     isMyTurn,
-    canAnnounceBelote,
-    announceBelote,
   } = useGame();
   if (!gameState) return null;
 
@@ -29,9 +27,6 @@ export function Tableau({ player }: TableauProps) {
     if (!isLocal || !isMyTurn || !isPlaying) return;
     if (!playableSet.has(cardToString(card))) return;
 
-    if (canAnnounceBelote(card)) {
-      announceBelote();
-    }
     playCard(card);
   };
 

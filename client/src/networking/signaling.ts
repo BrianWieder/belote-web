@@ -11,16 +11,27 @@ export function getSocket(): Socket {
   return socket;
 }
 
-export function connectSignaling(): Promise<void> {
+export function connectSignaling(timeoutMs = 10_000): Promise<void> {
   const s = getSocket();
   return new Promise((resolve, reject) => {
     if (s.connected) {
       resolve();
       return;
     }
+    const timer = setTimeout(() => {
+      s.off('connect');
+      s.off('connect_error');
+      reject(new Error('Connection to signaling server timed out'));
+    }, timeoutMs);
     s.connect();
-    s.once('connect', () => resolve());
-    s.once('connect_error', (err) => reject(err));
+    s.once('connect', () => {
+      clearTimeout(timer);
+      resolve();
+    });
+    s.once('connect_error', (err) => {
+      clearTimeout(timer);
+      reject(err);
+    });
   });
 }
 
@@ -48,8 +59,7 @@ export function sendSignal(roomCode: string, signal: unknown): void {
 }
 
 export function disconnectSignaling(): void {
-  if (socket) {
-    socket.disconnect();
-    socket = null;
-  }
+  // Keep the socket instance (and its listeners, e.g. peer-joined) so a
+  // later connectSignaling() can simply reconnect instead of re-registering.
+  socket?.disconnect();
 }
