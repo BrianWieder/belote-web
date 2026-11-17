@@ -84,8 +84,10 @@ test.describe('Two-player Belote game', () => {
 
     // Take confirms and game proceeds to playing, showing the trump announcement.
     await guestPage.getByTestId('bid-take').click();
-    await expect(hostPage.getByTestId('trump-announcement')).toContainText('Diamonds');
-    await expect(guestPage.getByTestId('trump-announcement')).toContainText('Diamonds');
+    await Promise.all([
+      expect(hostPage.getByTestId('trump-announcement')).toContainText('Diamonds'),
+      expect(guestPage.getByTestId('trump-announcement')).toContainText('Diamonds'),
+    ]);
     await hostPage.getByTestId('play-area').waitFor({ timeout: 5_000 });
     await guestPage.getByTestId('play-area').waitFor({ timeout: 5_000 });
   });

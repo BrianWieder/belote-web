@@ -52,13 +52,13 @@ export function TrumpAnnouncement() {
   const red = announcement ? isRedSuit(announcement.suit) : false;
 
   return (
-    <AnimatePresence>
-      {announcement && (
-        <div
-          aria-live="polite"
-          role="status"
-          className="fixed inset-0 z-40 flex items-center justify-center pointer-events-none px-4"
-        >
+    <div
+      aria-live="polite"
+      role="status"
+      className="fixed inset-0 z-40 flex items-center justify-center pointer-events-none px-4"
+    >
+      <AnimatePresence>
+        {announcement && (
           <motion.div
             key={`trump-${announcement.round}-${announcement.suit}`}
             data-testid="trump-announcement"
@@ -101,8 +101,8 @@ export function TrumpAnnouncement() {
               Taken by {announcement.taker === localPlayer ? 'you' : 'opponent'}
             </div>
           </motion.div>
-        </div>
-      )}
-    </AnimatePresence>
+        )}
+      </AnimatePresence>
+    </div>
   );
 }
