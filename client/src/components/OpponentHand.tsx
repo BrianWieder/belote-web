@@ -12,6 +12,7 @@ export function OpponentHand() {
 
   return (
     <div
+      role="img"
       aria-label={`Opponent holds ${count} ${count === 1 ? 'card' : 'cards'} in hand`}
       className="min-h-11 tall-sm:min-h-12 ultra-short:min-h-9 flex items-center justify-center"
     >

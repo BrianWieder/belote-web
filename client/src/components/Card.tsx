@@ -167,7 +167,11 @@ export function Card({
 
   if (decorative) {
     return (
-      <div aria-hidden="true" className={cardClasses}>
+      <div
+        aria-hidden="true"
+        data-testid={`card-${card.rank}-${card.suit}`}
+        className={cardClasses}
+      >
         {innerContent}
       </div>
     );

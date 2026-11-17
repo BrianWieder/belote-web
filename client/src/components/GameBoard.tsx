@@ -34,7 +34,7 @@ export function GameBoard() {
   return (
     <main
       data-testid="game-board"
-      className="tapis-surface flex flex-col justify-between h-full text-[#efe9dc] select-none overflow-hidden overscroll-none px-2 sm:px-4 pt-2.5 ultra-short:pt-1.5 pb-[max(0.85rem,env(safe-area-inset-bottom))] ultra-short:pb-[max(0.4rem,env(safe-area-inset-bottom))]"
+      className="tapis-surface flex flex-col justify-between h-full text-[#efe9dc] select-none overflow-y-auto overflow-x-hidden overscroll-y-contain px-2 sm:px-4 pt-2.5 ultra-short:pt-1.5 pb-[max(0.85rem,env(safe-area-inset-bottom))] ultra-short:pb-[max(0.4rem,env(safe-area-inset-bottom))]"
     >
       {/* Top section: Scoreboard + Opponent zone */}
       <div className="flex flex-col items-center gap-2 ultra-short:gap-1">
@@ -43,7 +43,7 @@ export function GameBoard() {
         {connectionStatus === 'disconnected' && (
           <div
             role="alert"
-            className="w-full max-w-lg rounded-xl bg-[#5c1619]/80 border border-[#e45a5e]/40 px-4 py-2 text-xs sm:text-sm text-[#f7b4b6] flex items-center justify-between gap-3"
+            className="relative z-[60] w-full max-w-lg rounded-xl bg-[#5c1619]/90 border border-[#e45a5e]/40 px-4 py-2 text-xs sm:text-sm text-[#f7b4b6] flex items-center justify-between gap-3"
           >
             <span>Connection to your opponent was lost.</span>
             <button

@@ -23,7 +23,7 @@ export function Lobby({ peerActions }: LobbyProps) {
   const [joinCode, setJoinCode] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [copyStatus, setCopyStatus] = useState<'idle' | 'copied' | 'failed'>('idle');
   const prefersReducedMotion = useReducedMotion();
 
   const { hostGame, joinGame, cancelConnection } = peerActions;
@@ -59,17 +59,18 @@ export function Lobby({ peerActions }: LobbyProps) {
     if (!roomCode) return;
     try {
       await navigator.clipboard.writeText(roomCode);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      setCopyStatus('copied');
+      setTimeout(() => setCopyStatus('idle'), 2000);
     } catch {
-      // Clipboard API unavailable in insecure context; silently ignore
+      setCopyStatus('failed');
+      setTimeout(() => setCopyStatus('idle'), 3000);
     }
   };
 
   if (connectionStatus === 'in-lobby' && roomCode) {
     return (
-      <main className="tapis-surface h-full overflow-y-auto overscroll-y-contain flex flex-col items-center justify-center px-4 py-8">
-        <div className="w-full max-w-md text-center">
+      <main className="tapis-surface h-full overflow-y-auto overscroll-y-contain flex flex-col items-center px-4 py-8">
+        <div className="my-auto w-full max-w-md text-center">
           <h1 className="font-display text-3xl sm:text-4xl font-semibold tracking-tight text-[#efe9dc] mb-6">
             Belote Maniée
           </h1>
@@ -94,7 +95,11 @@ export function Lobby({ peerActions }: LobbyProps) {
                 onClick={handleCopyCode}
                 className="btn-slate rounded-lg px-3.5 py-2 text-xs font-semibold shrink-0 cursor-pointer"
               >
-                {copied ? 'Copied' : 'Copy code'}
+                {copyStatus === 'copied'
+                  ? 'Copied'
+                  : copyStatus === 'failed'
+                    ? 'Copy manually'
+                    : 'Copy code'}
               </button>
             </div>
 
@@ -124,8 +129,8 @@ export function Lobby({ peerActions }: LobbyProps) {
 
   if (connectionStatus === 'connecting') {
     return (
-      <main className="tapis-surface h-full overflow-y-auto overscroll-y-contain flex flex-col items-center justify-center px-4 py-8">
-        <div className="w-full max-w-md text-center">
+      <main className="tapis-surface h-full overflow-y-auto overscroll-y-contain flex flex-col items-center px-4 py-8">
+        <div className="my-auto w-full max-w-md text-center">
           <h1 className="font-display text-3xl sm:text-4xl font-semibold tracking-tight text-[#efe9dc] mb-6">
             Belote Maniée
           </h1>
@@ -161,8 +166,8 @@ export function Lobby({ peerActions }: LobbyProps) {
   }
 
   return (
-    <main className="tapis-surface h-full overflow-y-auto overscroll-y-contain flex flex-col items-center justify-center px-4 py-10">
-      <div className="w-full max-w-md flex flex-col items-center">
+    <main className="tapis-surface h-full overflow-y-auto overscroll-y-contain flex flex-col items-center px-4 py-10">
+      <div className="my-auto w-full max-w-md flex flex-col items-center">
         {/* Characteristic fanned piquet hand: Jack, 9, King, Queen */}
         <div
           aria-hidden="true"
