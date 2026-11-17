@@ -1,20 +1,255 @@
 @import "tailwindcss";
 
-html, body {
+@custom-variant tall-sm (@media (min-width: 640px) and (min-height: 700px));
+@custom-variant ultra-short (@media (max-height: 600px));
+
+:root {
+  /* Core French bistrot card-table palette */
+  --baize-outer: #0b1f16;
+  --baize-deep: #112e21;
+  --baize-mid: #1b4734;
+  --baize-ring: rgba(212, 168, 75, 0.22);
+
+  /* Slate ardoise & walnut rail */
+  --ardoise-surface: rgba(13, 28, 21, 0.86);
+  --ardoise-solid: #11261c;
+  --ardoise-elevated: #173326;
+  --ardoise-border: rgba(239, 233, 220, 0.12);
+
+  /* Ivory linen card stock & French piquet inks */
+  --card-ivory: #faf6ec;
+  --card-ivory-warm: #f2ebda;
+  --card-edge: #d8ceb4;
+  --card-back-navy: #1c3252;
+  --card-back-deep: #112036;
+  --pip-carmine: #b8262a;
+  --pip-carmine-light: #e45a5e;
+  --pip-ink: #191c20;
+
+  /* Bistrot brass & chalk typography */
+  --brass: #d4a84b;
+  --brass-bright: #e3ba62;
+  --brass-deep: #8f6920;
+  --brass-ink: #1c1406;
+  --chalk: #efe9dc;
+  --chalk-muted: #a4bba9;
+  --chalk-dim: #73907c;
+
+  /* Typography */
+  --font-display: 'Fraunces', Georgia, serif;
+  --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+}
+
+html,
+body {
   margin: 0;
-  overflow-x: hidden;
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+  background-color: var(--baize-outer);
+  color: var(--chalk);
 }
 
 body {
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   -webkit-tap-highlight-color: transparent;
 }
 
 button {
   touch-action: manipulation;
+  font-family: inherit;
+}
+
+button:focus-visible,
+input:focus-visible {
+  outline: 2px solid var(--brass-bright);
+  outline-offset: 2px;
 }
 
 #root {
-  min-height: 100svh;
+  height: 100%;
+  height: 100dvh;
+  overflow: hidden;
+}
+
+.font-display {
+  font-family: var(--font-display);
+  font-optical-sizing: auto;
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Woven woollen tapis vert with overhead bistrot lamp illumination */
+.tapis-surface {
+  position: relative;
+  background-color: var(--baize-deep);
+  background-image:
+    radial-gradient(ellipse 78% 62% at 50% 42%, var(--baize-mid) 0%, var(--baize-deep) 58%, var(--baize-outer) 100%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)' opacity='0.045'/%3E%3C/svg%3E");
+  box-shadow: inset 0 0 96px rgba(5, 13, 9, 0.72);
+}
+
+/* Subtle inlaid table mat for center pli / bidding */
+.tapis-ring {
+  background: radial-gradient(ellipse at center, rgba(11, 31, 22, 0.36) 0%, rgba(11, 31, 22, 0.56) 100%);
+  border: 1px solid var(--baize-ring);
+  box-shadow:
+    inset 0 2px 12px rgba(5, 14, 10, 0.45),
+    0 1px 0 rgba(239, 233, 220, 0.05);
+}
+
+/* Slate ardoise ledger & modal panels */
+.ardoise-bar {
+  background-color: var(--ardoise-surface);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--ardoise-border);
+  box-shadow:
+    0 8px 24px rgba(5, 13, 9, 0.42),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.ardoise-panel {
+  background: linear-gradient(180deg, var(--ardoise-elevated) 0%, var(--ardoise-solid) 100%);
+  border: 1px solid rgba(212, 168, 75, 0.26);
+  box-shadow:
+    0 24px 56px rgba(4, 10, 7, 0.68),
+    inset 0 1px 0 rgba(255, 255, 255, 0.07);
+}
+
+/* Primary burnished brass CTA */
+.btn-brass {
+  background: linear-gradient(180deg, var(--brass-bright) 0%, var(--brass) 100%);
+  color: var(--brass-ink);
+  border: 1px solid rgba(255, 243, 209, 0.42);
+  box-shadow:
+    0 2px 8px rgba(7, 17, 12, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.45);
+  transition: transform 140ms cubic-bezier(0.22, 1, 0.36, 1), filter 140ms ease, box-shadow 140ms ease;
+}
+
+.btn-brass:hover:not(:disabled) {
+  filter: brightness(1.05);
+  transform: translateY(-1px);
+  box-shadow:
+    0 5px 14px rgba(7, 17, 12, 0.52),
+    inset 0 1px 0 rgba(255, 255, 255, 0.55);
+}
+
+.btn-brass:active:not(:disabled) {
+  transform: translateY(0);
+  filter: brightness(0.98);
+}
+
+.btn-brass:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Secondary slate button */
+.btn-slate {
+  background-color: rgba(239, 233, 220, 0.08);
+  color: var(--chalk);
+  border: 1px solid rgba(239, 233, 220, 0.2);
+  transition: background-color 140ms ease, border-color 140ms ease, transform 140ms ease;
+}
+
+.btn-slate:hover:not(:disabled) {
+  background-color: rgba(239, 233, 220, 0.14);
+  border-color: rgba(239, 233, 220, 0.34);
+}
+
+.btn-slate:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+/* French ivory playing card */
+.playing-card {
+  position: relative;
+  background: linear-gradient(165deg, #fdfbf5 0%, var(--card-ivory) 62%, var(--card-ivory-warm) 100%);
+  border: 1px solid var(--card-edge);
+  box-shadow:
+    0 3px 8px rgba(5, 14, 10, 0.38),
+    0 1px 2px rgba(5, 14, 10, 0.26),
+    inset 0 1px 0 rgba(255, 255, 255, 0.85);
+  transition:
+    transform 150ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 150ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 150ms ease,
+    opacity 150ms ease;
+}
+
+.playing-card-playable {
+  border-color: var(--brass);
+  box-shadow:
+    0 6px 14px rgba(5, 14, 10, 0.46),
+    0 0 0 1.5px var(--brass),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  cursor: pointer;
+}
+
+.playing-card-playable:hover {
+  transform: translateY(-9px);
+  border-color: var(--brass-bright);
+  box-shadow:
+    0 14px 24px rgba(5, 14, 10, 0.56),
+    0 0 0 2px var(--brass-bright),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95);
+}
+
+.playing-card-playable:active {
+  transform: translateY(-4px);
+}
+
+.playing-card-dimmed {
+  filter: brightness(0.76) saturate(0.82);
+}
+
+/* Traditional indigo lattice card back */
+.playing-card-back {
+  background-color: var(--card-ivory);
+  border: 1px solid var(--card-edge);
+  box-shadow:
+    0 2px 6px rgba(5, 14, 10, 0.38),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+.playing-card-back-inner {
+  background-color: var(--card-back-navy);
+  background-image:
+    repeating-linear-gradient(
+      45deg,
+      rgba(212, 168, 75, 0.16) 0px,
+      rgba(212, 168, 75, 0.16) 1px,
+      transparent 1px,
+      transparent 6px
+    ),
+    repeating-linear-gradient(
+      -45deg,
+      rgba(212, 168, 75, 0.16) 0px,
+      rgba(212, 168, 75, 0.16) 1px,
+      transparent 1px,
+      transparent 6px
+    ),
+    radial-gradient(circle at center, var(--card-back-navy) 0%, var(--card-back-deep) 100%);
+  border: 1px solid rgba(212, 168, 75, 0.42);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .playing-card-playable:hover,
+  .playing-card-playable:active,
+  .btn-brass:hover:not(:disabled) {
+    transform: none;
+  }
 }

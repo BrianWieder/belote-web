@@ -15,42 +15,49 @@ export function BiddingUI() {
   const jackForced = isRound1 && trumpCard?.rank === 'J';
 
   return (
-    <div className="flex flex-col items-center gap-4">
+    <div className="tapis-ring rounded-2xl px-6 py-5 sm:px-9 sm:py-6 flex flex-col items-center gap-4 max-w-md w-full">
       {trumpCard && (
-        <div className="text-center">
-          <p className="text-green-300 text-sm mb-2">
+        <div className="flex flex-col items-center text-center">
+          <p className="text-xs sm:text-sm text-[#a4bba9] mb-2.5">
             {isRound1
               ? jackForced
                 ? 'Jack turned up — non-dealer must take'
-                : 'Take with this trump?'
-              : 'Choose a different suit'}
+                : 'Take with this trump suit?'
+              : 'Choose another suit for trump'}
           </p>
-          <div className="flex justify-center">
-            <Card card={trumpCard} />
-          </div>
+          <Card card={trumpCard} decorative />
         </div>
       )}
 
       {isMyTurn ? (
-        <div className="flex flex-col items-center gap-3">
-          <p data-testid="your-turn-to-bid" className="text-yellow-300 font-semibold">
-            {isForced ? 'You must choose trump' : jackForced ? 'You must take' : 'Your turn to bid'}
+        <div className="flex flex-col items-center gap-3 w-full">
+          <p
+            data-testid="your-turn-to-bid"
+            className="font-display text-base sm:text-lg font-semibold text-[#e3ba62]"
+          >
+            {isForced
+              ? 'You must choose trump'
+              : jackForced
+                ? 'You must take'
+                : 'Your turn to bid'}
           </p>
 
           {isRound1 && (
-            <div className="flex gap-3">
+            <div className="flex items-center justify-center gap-3">
               <button
+                type="button"
                 data-testid="bid-take"
                 onClick={bidTake}
-                className="bg-yellow-500 hover:bg-yellow-400 text-green-900 font-bold py-2 px-6 rounded-lg transition-colors"
+                className="btn-brass font-semibold py-2.5 px-7 rounded-xl cursor-pointer"
               >
                 Take
               </button>
               {!jackForced && (
                 <button
+                  type="button"
                   data-testid="bid-pass"
                   onClick={bidPass}
-                  className="bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-6 rounded-lg transition-colors"
+                  className="btn-slate font-semibold py-2.5 px-7 rounded-xl cursor-pointer"
                 >
                   Pass
                 </button>
@@ -60,7 +67,7 @@ export function BiddingUI() {
 
           {isRound2 && (
             <div className="flex flex-col items-center gap-3">
-              <div className="flex gap-2">
+              <div className="flex flex-wrap justify-center gap-2 sm:gap-2.5">
                 {ALL_SUITS.map((suit) => (
                   <SuitButton
                     key={suit}
@@ -72,9 +79,10 @@ export function BiddingUI() {
                 ))}
               </div>
               <button
+                type="button"
                 data-testid="bid-pass-round2"
                 onClick={bidPass}
-                className="bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-6 rounded-lg transition-colors"
+                className="btn-slate font-semibold py-2 px-7 rounded-xl cursor-pointer text-sm"
               >
                 Pass
               </button>
@@ -82,7 +90,7 @@ export function BiddingUI() {
           )}
 
           {isForced && (
-            <div className="flex gap-2">
+            <div className="flex flex-wrap justify-center gap-2 sm:gap-2.5">
               {ALL_SUITS.map((suit) => (
                 <SuitButton
                   key={suit}
@@ -95,7 +103,10 @@ export function BiddingUI() {
           )}
         </div>
       ) : (
-        <p data-testid="waiting-for-opponent" className="text-green-300">
+        <p
+          data-testid="waiting-for-opponent"
+          className="text-sm text-[#a4bba9] text-center"
+        >
           {isForced
             ? 'Waiting for opponent to choose trump...'
             : jackForced

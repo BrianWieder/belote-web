@@ -8,14 +8,22 @@ interface TableauProps {
 }
 
 export function Tableau({ player }: TableauProps) {
-  const { gameState, localPlayer, playCard, playableCards, isMyTurn, canAnnounceBelote, announceBelote } = useGame();
+  const {
+    gameState,
+    localPlayer,
+    playCard,
+    playableCards,
+    isMyTurn,
+    canAnnounceBelote,
+    announceBelote,
+  } = useGame();
   if (!gameState) return null;
 
   const tableau = gameState.tableau[player];
   const isLocal = player === localPlayer;
   const isPlaying = gameState.phase === 'playing';
 
-  const playableSet = new Set(playableCards.map(c => cardToString(c)));
+  const playableSet = new Set(playableCards.map((c) => cardToString(c)));
 
   const handleCardClick = (card: CardType) => {
     if (!isLocal || !isMyTurn || !isPlaying) return;
@@ -28,33 +36,61 @@ export function Tableau({ player }: TableauProps) {
   };
 
   return (
-    <div data-testid={`tableau-${player}`} className="flex justify-center gap-1 sm:gap-3">
+    <div
+      data-testid={`tableau-${player}`}
+      className="flex justify-center gap-2 sm:gap-3.5"
+    >
       {tableau.map((slot: TableauSlot, i: number) => {
         const isEmpty = !slot.faceDown && !slot.faceUp;
         if (isEmpty) {
-          return <div key={i} className="w-10 h-14 sm:w-12 sm:h-[4.25rem]" />;
+          return (
+            <div
+              key={i}
+              aria-hidden="true"
+              className="w-11 h-[5rem] tall-sm:w-14 tall-sm:h-[5.9rem] ultra-short:h-[4.35rem] flex items-center justify-center"
+            >
+              <div className="w-11 h-[4.25rem] tall-sm:w-14 tall-sm:h-20 ultra-short:h-[3.85rem] rounded-lg border border-dashed border-[#efe9dc]/12 bg-[#0b1f16]/20" />
+            </div>
+          );
         }
 
         const faceUpCard = slot.faceUp;
-        const canPlay = isLocal && isPlaying && isMyTurn && faceUpCard
-          ? playableSet.has(cardToString(faceUpCard))
-          : false;
+        const canPlay =
+          isLocal && isPlaying && isMyTurn && faceUpCard
+            ? playableSet.has(cardToString(faceUpCard))
+            : false;
+        const shouldDim = isLocal && isPlaying && isMyTurn && !canPlay;
+        const isTrump = Boolean(
+          faceUpCard && gameState.trumpSuit && faceUpCard.suit === gameState.trumpSuit,
+        );
 
         return (
-          <div key={i} className="relative w-10 h-20 sm:w-12 sm:h-24">
-            {/* Face-down card underneath */}
+          <div
+            key={i}
+            className="relative w-11 h-[5rem] tall-sm:w-14 tall-sm:h-[5.9rem] ultra-short:h-[4.35rem]"
+          >
+            {/* Buried face-down card */}
             {slot.faceDown && (
               <div className="absolute top-0 left-0">
-                <Card card={{ suit: 'spades', rank: '7' }} faceDown small />
+                <Card card={{ suit: 'spades', rank: '7' }} faceDown size="sm" />
               </div>
             )}
-            {/* Face-up card on top, offset down slightly */}
+
+            {/* Exposed face-up card */}
             {faceUpCard && (
-              <div className={`absolute ${slot.faceDown ? 'top-4 sm:top-5' : 'top-0'} left-0`}>
+              <div
+                className={`absolute ${
+                  slot.faceDown
+                    ? 'top-3 tall-sm:top-3.5 ultra-short:top-2'
+                    : 'top-1 tall-sm:top-1.5 ultra-short:top-0.5'
+                } left-0`}
+              >
                 <Card
                   card={faceUpCard}
                   playable={canPlay}
-                  small
+                  dimmed={shouldDim}
+                  isTrump={isTrump}
+                  size="sm"
                   onClick={() => handleCardClick(faceUpCard)}
                 />
               </div>
