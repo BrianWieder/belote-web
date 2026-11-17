@@ -23,7 +23,9 @@ export function BiddingUI() {
               ? jackForced
                 ? 'Jack turned up — non-dealer must take'
                 : 'Take with this trump suit?'
-              : 'Choose another suit for trump'}
+              : isForced
+                ? 'All passed — choose any suit for trump'
+                : 'Choose another suit for trump'}
           </p>
           <Card card={trumpCard} decorative />
         </div>

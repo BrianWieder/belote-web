@@ -22,7 +22,7 @@ export function GameBoard() {
     gameState.phase === 'bidding-round2' ||
     gameState.phase === 'bidding-forced';
   const isPlaying = gameState.phase === 'playing';
-  const showTableau = isPlaying || gameState.phase === 'bidding-forced';
+  const showTableau = isPlaying;
   const opponent: PlayerID = localPlayer === 0 ? 1 : 0;
 
   const isModalOpen =
