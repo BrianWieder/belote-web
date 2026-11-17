@@ -100,14 +100,14 @@ export function usePeer() {
     };
 
     const handlePeerDisconnected = () => {
+      // Once the WebRTC data channel is open, signaling disconnects shouldn't
+      // block an active game; real peer drops are reported by peer.ts.
+      if (isPeerConnected()) return;
       // Clear any pending host seed-sync polling from this room.
       if (checkConnectionRef.current) {
         clearInterval(checkConnectionRef.current);
         checkConnectionRef.current = null;
       }
-      // Once the WebRTC data channel is open, signaling disconnects shouldn't
-      // block an active game; real peer drops are reported by peer.ts.
-      if (isPeerConnected()) return;
       destroyPeer();
       setConnectionStatus('disconnected');
     };
