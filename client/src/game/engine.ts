@@ -276,22 +276,24 @@ function handlePlayCard(state: GameState, player: PlayerID, cardStr: string): Ga
 }
 
 /**
- * Declares belote when a player plays the first card of a trump K+Q pair
- * they still hold, and rebelote when they play the second card. This is
- * evaluated from the shared state, so both clients agree automatically.
+ * Declares belote when a player plays the first card of a visible trump K+Q
+ * pair (in hand or face-up in the tableau), and rebelote when they play the
+ * second card. Face-down tableau cards do not count until uncovered before
+ * the first card of the pair is played. Evaluated from shared state so both
+ * clients agree automatically.
  */
 function announceBeloteIfApplicable(state: GameState, player: PlayerID, card: Card): void {
   const trumpSuit = state.trumpSuit;
   if (!trumpSuit || !isBeloteCard(card, trumpSuit)) return;
   if (state.rebeloteDeclared[player]) return;
 
-  const possessed: Card[] = [
+  const visibleCards: Card[] = [
     ...state.hands[player],
     ...state.tableau[player].flatMap(s => (s.faceUp ? [s.faceUp] : [])),
   ];
 
-  // Both cards of the pair still in hand/tableau: first card played → belote.
-  if (hasBelotePair(possessed, trumpSuit)) {
+  // Both cards of the pair visible in hand or face-up tableau: first card played → belote.
+  if (hasBelotePair(visibleCards, trumpSuit)) {
     state.beloteDeclared[player] = true;
     return;
   }

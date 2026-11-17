@@ -447,4 +447,65 @@ describe('belote', () => {
     expect(next.beloteDeclared[1]).toBe(false);
     expect(next.rebeloteDeclared[1]).toBe(false);
   });
+
+  it('does not declare belote or rebelote when the second card is still face-down when the first is played', () => {
+    let state = beloteState([
+      c('A', 'hearts'), c('10', 'hearts'), c('9', 'hearts'),
+      c('8', 'hearts'), c('7', 'hearts'), c('A', 'diamonds'),
+    ]);
+    state.tableau[1] = [
+      { faceDown: c('Q', 'spades'), faceUp: c('K', 'spades') },
+      { faceDown: null, faceUp: null },
+      { faceDown: null, faceUp: null },
+      { faceDown: null, faceUp: null },
+    ];
+
+    // Playing K while Q is unseen (face-down underneath) cannot declare belote.
+    state = applyAction(state, 1, { type: 'play-card', card: 'K_spades' });
+    expect(state.beloteDeclared[1]).toBe(false);
+    expect(state.rebeloteDeclared[1]).toBe(false);
+    expect(state.tableau[1][0].faceUp).toEqual(c('Q', 'spades'));
+
+    const playable0 = getPlayableCards(state);
+    state = applyAction(state, 0, { type: 'play-card', card: cardToString(playable0[0]) });
+
+    // Even after Q flips face-up and is played next trick, rebelote is not declared.
+    expect(state.currentPlayer).toBe(1);
+    state = applyAction(state, 1, { type: 'play-card', card: 'Q_spades' });
+    expect(state.beloteDeclared[1]).toBe(false);
+    expect(state.rebeloteDeclared[1]).toBe(false);
+  });
+
+  it('declares belote and rebelote if a face-down pair card is uncovered before the first is played', () => {
+    let state = beloteState([
+      c('K', 'spades'), c('10', 'hearts'), c('9', 'hearts'),
+      c('8', 'hearts'), c('7', 'hearts'), c('A', 'diamonds'),
+    ]);
+    state.tableau[1] = [
+      { faceDown: c('Q', 'spades'), faceUp: c('A', 'clubs') },
+      { faceDown: null, faceUp: null },
+      { faceDown: null, faceUp: null },
+      { faceDown: null, faceUp: null },
+    ];
+
+    // Trick 1: Play A_clubs to uncover Q_spades first (player 0 has no clubs/spades, so player 1 wins).
+    state = applyAction(state, 1, { type: 'play-card', card: 'A_clubs' });
+    expect(state.tableau[1][0].faceUp).toEqual(c('Q', 'spades'));
+    let playable0 = getPlayableCards(state);
+    state = applyAction(state, 0, { type: 'play-card', card: cardToString(playable0[0]) });
+    expect(state.currentPlayer).toBe(1);
+
+    // Trick 2: Now both K_spades and Q_spades are visible -> playing K_spades declares belote.
+    state = applyAction(state, 1, { type: 'play-card', card: 'K_spades' });
+    expect(state.beloteDeclared[1]).toBe(true);
+    expect(state.rebeloteDeclared[1]).toBe(false);
+    playable0 = getPlayableCards(state);
+    state = applyAction(state, 0, { type: 'play-card', card: cardToString(playable0[0]) });
+
+    // Trick 3: Playing Q_spades declares rebelote.
+    expect(state.currentPlayer).toBe(1);
+    state = applyAction(state, 1, { type: 'play-card', card: 'Q_spades' });
+    expect(state.beloteDeclared[1]).toBe(true);
+    expect(state.rebeloteDeclared[1]).toBe(true);
+  });
 });
