@@ -4,6 +4,7 @@ import type { GameAction, GameState } from '../game/types';
 
 export type PeerMessage =
   | { type: 'sync-seed'; seed: string; dealer: 0 | 1 }
+  | { type: 'resume-game'; state: GameState }
   | { type: 'game-action'; action: GameAction; seq: number }
   | { type: 'new-round' }
   | { type: 'resync-request' }

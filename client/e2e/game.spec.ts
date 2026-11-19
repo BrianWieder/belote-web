@@ -91,6 +91,59 @@ test.describe('Two-player Belote game', () => {
     await hostPage.getByTestId('play-area').waitFor({ timeout: 5_000 });
     await guestPage.getByTestId('play-area').waitFor({ timeout: 5_000 });
   });
+
+  test('host saves match in localStorage and resumes with a new room code', async () => {
+    // 1. Start a match and play 2 tricks
+    await hostPage.goto('/');
+    await hostPage.getByTestId('create-room').click();
+    const initialCode = (await hostPage.getByTestId('room-code').textContent())!.trim();
+
+    await guestPage.goto('/');
+    await guestPage.getByTestId('join-code-input').fill(initialCode);
+    await guestPage.getByTestId('join-room').click();
+
+    await hostPage.getByTestId('game-board').waitFor({ timeout: 15_000 });
+    await guestPage.getByTestId('game-board').waitFor({ timeout: 15_000 });
+
+    await completeBidding(hostPage, guestPage);
+    await hostPage.getByTestId('play-area').waitFor({ timeout: 15_000 });
+    await guestPage.getByTestId('play-area').waitFor({ timeout: 15_000 });
+
+    await playOneTrick(hostPage, guestPage);
+    await playOneTrick(hostPage, guestPage);
+    await expect(hostPage.getByTestId('trick-counter')).toContainText('Trick 3/16');
+
+    // 2. Host reloads (simulating disconnect / returning later) and sees the saved game
+    await hostPage.reload();
+    await expect(hostPage.getByTestId('saved-game-card')).toBeVisible({ timeout: 5_000 });
+    await expect(hostPage.getByTestId('saved-game-card')).toContainText('Trick 3/16');
+
+    // 3. Host clicks Resume to get a fresh 4-character room code
+    await hostPage.getByTestId('resume-game').click();
+    const resumeCodeEl = hostPage.getByTestId('room-code');
+    await resumeCodeEl.waitFor({ timeout: 10_000 });
+    const resumeCode = (await resumeCodeEl.textContent())!.trim();
+    expect(resumeCode).toMatch(/^[A-Z0-9]{4}$/);
+
+    // 4. Guest reloads to the home screen and joins using the new code
+    await guestPage.goto('/');
+    await expect(guestPage.getByTestId('saved-game-card')).toHaveCount(0);
+    await guestPage.getByTestId('join-code-input').fill(resumeCode);
+    await guestPage.getByTestId('join-room').click();
+
+    // 5. Both players hydrate straight into Trick 3/16 without trump popup misfiring
+    await hostPage.getByTestId('play-area').waitFor({ timeout: 15_000 });
+    await guestPage.getByTestId('play-area').waitFor({ timeout: 15_000 });
+    await expect(hostPage.getByTestId('trick-counter')).toContainText('Trick 3/16');
+    await expect(guestPage.getByTestId('trick-counter')).toContainText('Trick 3/16');
+    await expect(hostPage.getByTestId('trump-announcement')).toHaveCount(0);
+    await expect(guestPage.getByTestId('trump-announcement')).toHaveCount(0);
+
+    // 6. Playing another trick succeeds cleanly on both sides
+    await playOneTrick(hostPage, guestPage);
+    await expect(hostPage.getByTestId('trick-counter')).toContainText('Trick 4/16');
+    await expect(guestPage.getByTestId('trick-counter')).toContainText('Trick 4/16');
+  });
 });
 
 /**
