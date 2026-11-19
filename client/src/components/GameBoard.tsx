@@ -8,6 +8,7 @@ import { Hand } from './Hand';
 import { OpponentHand } from './OpponentHand';
 import { Tableau } from './Tableau';
 import { Scoreboard, RoundSummary, GameOver } from './Scoreboard';
+import { TrumpAnnouncement } from './TrumpAnnouncement';
 import type { PlayerID } from '../game/types';
 
 export function GameBoard() {
@@ -81,7 +82,8 @@ export function GameBoard() {
         <Hand />
       </div>
 
-      {/* End-of-round & end-of-game dialogs */}
+      {/* Trump suit announcement & end-of-round / end-of-game dialogs */}
+      <TrumpAnnouncement />
       <RoundSummary disconnected={isDisconnected} onReturnToLobby={handleReturnToLobby} />
       <GameOver disconnected={isDisconnected} onReturnToLobby={handleReturnToLobby} />
     </main>
