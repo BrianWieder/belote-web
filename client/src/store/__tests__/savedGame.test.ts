@@ -89,6 +89,30 @@ describe('savedGame persistence', () => {
     expect(isValidResumableGameState({ ...initial, seed: '' })).toBe(false);
     expect(isValidResumableGameState({ ...initial, hands: [initial.hands[0]] })).toBe(false);
     expect(isValidResumableGameState({ ...initial, roundScores: [{ bad: true }] })).toBe(false);
+    // Active trick with follower card but missing leader card would crash getPlayableCards
+    expect(
+      isValidResumableGameState({
+        ...initial,
+        currentTrick: { leader: 0, cards: [null, { suit: 'hearts', rank: 'A' }] },
+      }),
+    ).toBe(false);
+    // Completed trick missing winner or a card must be rejected
+    expect(
+      isValidResumableGameState({
+        ...initial,
+        tricks: [{ leader: 0, cards: [{ suit: 'hearts', rank: 'A' }, null] }],
+      }),
+    ).toBe(false);
+  });
+
+  it('saveHostGame returns false when storage throws', () => {
+    const failingStorage = {
+      ...createMemoryStorage(),
+      setItem() {
+        throw new Error('QuotaExceededError');
+      },
+    };
+    expect(saveHostGame(createInitialState('quota-seed', 0), failingStorage)).toBe(false);
   });
 
   it('clearSavedGame removes the entry', () => {

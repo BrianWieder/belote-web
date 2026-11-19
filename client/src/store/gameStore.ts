@@ -6,10 +6,11 @@ import { getPlayableCards } from '../game/validation';
 import { sendPeerMessage } from '../networking/peer';
 import { isValidResumableGameState, saveHostGame } from './savedGame';
 
-function persistIfHost(gameState: GameState, isHost: boolean, localPlayer: PlayerID) {
+function persistIfHost(gameState: GameState, isHost: boolean, localPlayer: PlayerID): boolean {
   if (isHost && localPlayer === 0) {
-    saveHostGame(gameState);
+    return saveHostGame(gameState);
   }
+  return false;
 }
 
 function setSentryGameContext(gameState: GameState | null, localPlayer: PlayerID) {
@@ -42,6 +43,7 @@ interface GameStore {
   // Game state
   gameState: GameState | null;
   pendingResumeState: GameState | null;
+  hostGameSaved: boolean;
 
   // Actions
   setConnectionStatus: (status: ConnectionStatus) => void;
@@ -76,6 +78,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   localPlayer: 0,
   gameState: null,
   pendingResumeState: null,
+  hostGameSaved: false,
 
   setConnectionStatus: (status) => set({ connectionStatus: status }),
   setConnectionError: (err) => set({ connectionError: err }),
@@ -87,6 +90,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     localPlayer: 0,
     gameState: null,
     pendingResumeState: null,
+    hostGameSaved: false,
   }),
   setRoomCode: (code) => set({ roomCode: code }),
   setIsHost: (isHost) => set({ isHost }),
@@ -96,16 +100,16 @@ export const useGameStore = create<GameStore>((set, get) => ({
   initGame: (seed, dealer) => {
     const state = createInitialState(seed, dealer);
     const { isHost, localPlayer } = get();
-    set({ gameState: state, pendingResumeState: null });
-    persistIfHost(state, isHost, localPlayer);
+    const saved = persistIfHost(state, isHost, localPlayer);
+    set({ gameState: state, pendingResumeState: null, hostGameSaved: saved });
     setSentryGameContext(state, localPlayer);
     Sentry.addBreadcrumb({ category: 'game', message: `Game initialized (seed: ${seed}, dealer: ${dealer})`, level: 'info' });
   },
 
   hydrateGame: (state) => {
     const { isHost, localPlayer } = get();
-    set({ gameState: state, pendingResumeState: null });
-    persistIfHost(state, isHost, localPlayer);
+    const saved = persistIfHost(state, isHost, localPlayer);
+    set({ gameState: state, pendingResumeState: null, hostGameSaved: saved });
     setSentryGameContext(state, localPlayer);
     Sentry.addBreadcrumb({ category: 'game', message: `Game resumed (seed: ${state.seed}, seq: ${state.sequenceNumber})`, level: 'info' });
   },
@@ -125,8 +129,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const next = applyAction(gameState, localPlayer, action);
     if (next.sequenceNumber === gameState.sequenceNumber) return; // action was rejected
 
-    set({ gameState: next });
-    persistIfHost(next, isHost, localPlayer);
+    const saved = persistIfHost(next, isHost, localPlayer);
+    set({ gameState: next, hostGameSaved: saved });
     setSentryGameContext(next, localPlayer);
     Sentry.addBreadcrumb({ category: 'game', message: `Local action: ${action.type}`, level: 'info', data: action });
     sendPeerMessage({
@@ -156,8 +160,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const next = applyAction(gameState, remotePlayer, action);
     if (next.sequenceNumber === gameState.sequenceNumber) return; // action was rejected
 
-    set({ gameState: next });
-    persistIfHost(next, isHost, localPlayer);
+    const saved = persistIfHost(next, isHost, localPlayer);
+    set({ gameState: next, hostGameSaved: saved });
     setSentryGameContext(next, localPlayer);
     Sentry.addBreadcrumb({ category: 'game', message: `Remote action: ${action.type}`, level: 'info', data: action });
   },
@@ -178,8 +182,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
     // Only accept a resync from a matching seed; applying a foreign state
     // would corrupt the local game.
     if (!gameState || state.seed !== gameState.seed) return;
-    set({ gameState: state });
-    persistIfHost(state, isHost, localPlayer);
+    const saved = persistIfHost(state, isHost, localPlayer);
+    set({ gameState: state, hostGameSaved: saved });
     setSentryGameContext(state, localPlayer);
     Sentry.addBreadcrumb({ category: 'game', message: 'Received full state resync', level: 'info' });
   },
@@ -189,8 +193,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (!gameState || gameState.phase !== 'round-over') return;
 
     const next = startNewRound(gameState);
-    set({ gameState: next });
-    persistIfHost(next, isHost, localPlayer);
+    const saved = persistIfHost(next, isHost, localPlayer);
+    set({ gameState: next, hostGameSaved: saved });
     setSentryGameContext(next, localPlayer);
     sendPeerMessage({ type: 'new-round' });
   },
@@ -200,8 +204,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (!gameState || gameState.phase !== 'round-over') return;
 
     const next = startNewRound(gameState);
-    set({ gameState: next });
-    persistIfHost(next, isHost, localPlayer);
+    const saved = persistIfHost(next, isHost, localPlayer);
+    set({ gameState: next, hostGameSaved: saved });
     setSentryGameContext(next, localPlayer);
   },
 

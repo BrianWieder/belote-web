@@ -51,12 +51,20 @@ function isValidPlayerTableau(value: unknown): boolean {
   return Array.isArray(value) && value.length === 4 && value.every(isValidTableauSlot);
 }
 
-function isValidTrick(value: unknown): boolean {
+function isValidTrick(value: unknown, requireComplete: boolean): boolean {
   if (!isRecord(value)) return false;
   if (!isPlayerID(value.leader)) return false;
   if (value.winner !== undefined && !isPlayerID(value.winner)) return false;
   if (!Array.isArray(value.cards) || value.cards.length !== 2) return false;
-  return value.cards.every((c) => c === null || isValidCard(c));
+  if (!value.cards.every((c) => c === null || isValidCard(c))) return false;
+
+  const leaderCard = value.cards[value.leader];
+  const followerCard = value.cards[value.leader === 0 ? 1 : 0];
+  if (requireComplete) {
+    return leaderCard !== null && followerCard !== null && isPlayerID(value.winner);
+  }
+  // In an active trick, the follower cannot have played before the leader.
+  return !(leaderCard === null && followerCard !== null);
 }
 
 function isNumberPair(value: unknown): value is [number, number] {
@@ -103,8 +111,10 @@ export function isValidResumableGameState(value: unknown): value is GameState {
     return false;
   }
 
-  if (!Array.isArray(value.tricks) || !value.tricks.every(isValidTrick)) return false;
-  if (!isValidTrick(value.currentTrick)) return false;
+  if (!Array.isArray(value.tricks) || !value.tricks.every((t) => isValidTrick(t, true))) {
+    return false;
+  }
+  if (!isValidTrick(value.currentTrick, false)) return false;
   if (
     !Array.isArray(value.tricksWon) ||
     value.tricksWon.length !== 2 ||
@@ -157,11 +167,11 @@ function getDefaultStorage(): Storage | null {
   }
 }
 
-export function saveHostGame(gameState: GameState, storage: Storage | null = getDefaultStorage()): void {
-  if (!storage) return;
+export function saveHostGame(gameState: GameState, storage: Storage | null = getDefaultStorage()): boolean {
+  if (!storage) return false;
   if (gameState.phase === 'game-over') {
     clearSavedGame(storage);
-    return;
+    return false;
   }
   try {
     const snapshot: SavedGameSnapshot = {
@@ -170,8 +180,10 @@ export function saveHostGame(gameState: GameState, storage: Storage | null = get
       gameState,
     };
     storage.setItem(SAVED_GAME_STORAGE_KEY, JSON.stringify(snapshot));
+    return true;
   } catch {
     // Ignore storage quota or private browsing errors
+    return false;
   }
 }
 

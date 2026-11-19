@@ -86,11 +86,11 @@ export function Scoreboard() {
 
 interface DialogDisconnectProps {
   disconnected?: boolean;
-  isHost?: boolean;
+  matchSaved?: boolean;
   onReturnToLobby?: () => void;
 }
 
-export function RoundSummary({ disconnected, isHost, onReturnToLobby }: DialogDisconnectProps) {
+export function RoundSummary({ disconnected, matchSaved, onReturnToLobby }: DialogDisconnectProps) {
   const { gameState, localPlayer, nextRound } = useGame();
   if (!gameState || gameState.phase !== 'round-over') return null;
 
@@ -208,7 +208,7 @@ export function RoundSummary({ disconnected, isHost, onReturnToLobby }: DialogDi
               role="alert"
               className="rounded-xl bg-[#5c1619]/75 border border-[#e45a5e]/40 px-3.5 py-2 text-xs text-[#f7b4b6]"
             >
-              {isHost
+              {matchSaved
                 ? 'Connection lost — your match is saved. Return to the lobby to resume.'
                 : 'Connection to your opponent was lost.'}
             </p>
