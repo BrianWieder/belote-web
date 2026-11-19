@@ -111,7 +111,8 @@ test.describe('Two-player Belote game', () => {
 
     await playOneTrick(hostPage, guestPage);
     await playOneTrick(hostPage, guestPage);
-    await expect(hostPage.getByTestId('trick-counter')).toContainText('Trick 3/16');
+    // PlayArea keeps the last completed trick visible until the next lead is played.
+    await expect(hostPage.getByTestId('trick-counter')).toContainText('Trick 2/16');
 
     // 2. Host reloads (simulating disconnect / returning later) and sees the saved game
     await hostPage.reload();
@@ -131,18 +132,18 @@ test.describe('Two-player Belote game', () => {
     await guestPage.getByTestId('join-code-input').fill(resumeCode);
     await guestPage.getByTestId('join-room').click();
 
-    // 5. Both players hydrate straight into Trick 3/16 without trump popup misfiring
+    // 5. Both players hydrate straight back into the saved state without trump popup misfiring
     await hostPage.getByTestId('play-area').waitFor({ timeout: 15_000 });
     await guestPage.getByTestId('play-area').waitFor({ timeout: 15_000 });
-    await expect(hostPage.getByTestId('trick-counter')).toContainText('Trick 3/16');
-    await expect(guestPage.getByTestId('trick-counter')).toContainText('Trick 3/16');
+    await expect(hostPage.getByTestId('trick-counter')).toContainText('Trick 2/16');
+    await expect(guestPage.getByTestId('trick-counter')).toContainText('Trick 2/16');
     await expect(hostPage.getByTestId('trump-announcement')).toHaveCount(0);
     await expect(guestPage.getByTestId('trump-announcement')).toHaveCount(0);
 
-    // 6. Playing another trick succeeds cleanly on both sides
+    // 6. Playing the 3rd trick succeeds cleanly on both sides
     await playOneTrick(hostPage, guestPage);
-    await expect(hostPage.getByTestId('trick-counter')).toContainText('Trick 4/16');
-    await expect(guestPage.getByTestId('trick-counter')).toContainText('Trick 4/16');
+    await expect(hostPage.getByTestId('trick-counter')).toContainText('Trick 3/16');
+    await expect(guestPage.getByTestId('trick-counter')).toContainText('Trick 3/16');
   });
 });
 
