@@ -56,23 +56,31 @@ export function PlayArea() {
   return (
     <div className="flex flex-col items-center gap-2 ultra-short:gap-1 w-full max-w-md">
       {/* Contract, trick count, and Belote announcements */}
-      <div className="flex flex-wrap items-center justify-center gap-2 text-xs">
+      <div className="flex flex-wrap items-center justify-center gap-2.5 ultra-short:gap-1.5 text-xs">
         {trumpSuit && (
-          <div className="ardoise-bar rounded-full px-3 py-1 ultra-short:py-0.5 flex items-center gap-1.5">
-            <span className="text-[#a4bba9]">Trump:</span>
+          <div
+            data-testid="trump-indicator"
+            className="rounded-xl bg-[#11261c]/95 border border-[#d4a84b]/55 shadow-[0_6px_18px_rgba(4,12,8,0.45)] pl-1.5 pr-3 py-1 ultra-short:py-0.5 flex items-center gap-2"
+          >
             <span
-              className={`inline-flex items-center gap-1 font-semibold ${
-                redTrump ? 'text-[#e45a5e]' : 'text-[#efe9dc]'
+              aria-hidden="true"
+              className={`w-7 h-7 tall-sm:w-8 tall-sm:h-8 ultra-short:w-6 ultra-short:h-6 rounded-lg bg-[#faf6ec] border border-[#d4a84b]/75 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)] flex items-center justify-center shrink-0 ${
+                redTrump ? 'text-[#b8262a]' : 'text-[#191c20]'
               }`}
             >
-              <SuitIcon suit={trumpSuit} className="w-3.5 h-3.5" />
-              {SUIT_NAMES[trumpSuit]}
+              <SuitIcon
+                suit={trumpSuit}
+                className="w-4 h-4 tall-sm:w-5 tall-sm:h-5 ultra-short:w-3.5 ultra-short:h-3.5"
+              />
             </span>
-            {gameState.taker !== null && (
-              <span className="text-[#a4bba9]">
-                ({gameState.taker === localPlayer ? 'You' : 'Opp'})
+            <div className="flex flex-col leading-none">
+              <span className="text-[9px] tall-sm:text-[10px] uppercase tracking-[0.14em] font-semibold text-[#e3ba62]">
+                Trump{gameState.taker !== null ? ` · ${gameState.taker === localPlayer ? 'You' : 'Opp'}` : ''}
               </span>
-            )}
+              <span className="font-display text-sm tall-sm:text-base ultra-short:text-xs font-semibold text-[#efe9dc] mt-0.5">
+                {SUIT_NAMES[trumpSuit]}
+              </span>
+            </div>
           </div>
         )}
 
