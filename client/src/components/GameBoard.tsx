@@ -14,6 +14,7 @@ import type { PlayerID } from '../game/types';
 export function GameBoard() {
   const { gameState, localPlayer } = useGame();
   const connectionStatus = useGameStore((s) => s.connectionStatus);
+  const hostGameSaved = useGameStore((s) => s.hostGameSaved);
   const resetConnection = useGameStore((s) => s.resetConnection);
 
   if (!gameState) return null;
@@ -50,7 +51,11 @@ export function GameBoard() {
             role="alert"
             className="w-full max-w-lg rounded-xl bg-[#5c1619]/90 border border-[#e45a5e]/40 px-4 py-2 text-xs sm:text-sm text-[#f7b4b6] flex items-center justify-between gap-3"
           >
-            <span>Connection to your opponent was lost.</span>
+            <span>
+              {hostGameSaved
+                ? 'Connection lost — your match is saved. Return to the lobby to resume.'
+                : 'Connection to your opponent was lost.'}
+            </span>
             <button
               type="button"
               onClick={handleReturnToLobby}
@@ -84,7 +89,11 @@ export function GameBoard() {
 
       {/* Trump suit announcement & end-of-round / end-of-game dialogs */}
       <TrumpAnnouncement />
-      <RoundSummary disconnected={isDisconnected} onReturnToLobby={handleReturnToLobby} />
+      <RoundSummary
+        disconnected={isDisconnected}
+        matchSaved={hostGameSaved}
+        onReturnToLobby={handleReturnToLobby}
+      />
       <GameOver disconnected={isDisconnected} onReturnToLobby={handleReturnToLobby} />
     </main>
   );

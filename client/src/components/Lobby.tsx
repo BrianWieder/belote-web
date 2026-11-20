@@ -1,12 +1,21 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { useGameStore } from '../store/gameStore';
+import {
+  clearSavedGame,
+  describeSavedPhase,
+  formatSavedAt,
+  loadSavedGame,
+  SAVED_GAME_STORAGE_KEY,
+  type SavedGameSnapshot,
+} from '../store/savedGame';
 import { Card } from './Card';
-import type { Card as CardType } from '../game/types';
+import type { Card as CardType, GameState } from '../game/types';
 
 interface LobbyProps {
   peerActions: {
     hostGame: () => Promise<void>;
+    resumeGame: (savedState: GameState) => Promise<void>;
     joinGame: (code: string) => Promise<void>;
     cancelConnection: () => void;
   };
@@ -22,22 +31,51 @@ const FAN_CARDS: { card: CardType; rotate: number; y: number; x: number }[] = [
 export function Lobby({ peerActions }: LobbyProps) {
   const [joinCode, setJoinCode] = useState('');
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [loadingAction, setLoadingAction] = useState<'create' | 'resume' | 'join' | null>(null);
   const [copyStatus, setCopyStatus] = useState<'idle' | 'copied' | 'failed'>('idle');
+  const [savedGame, setSavedGame] = useState<SavedGameSnapshot | null>(() => loadSavedGame());
   const prefersReducedMotion = useReducedMotion();
 
-  const { hostGame, joinGame, cancelConnection } = peerActions;
-  const { connectionStatus, roomCode, connectionError } = useGameStore();
+  const { hostGame, resumeGame, joinGame, cancelConnection } = peerActions;
+  const { connectionStatus, roomCode, connectionError, pendingResumeState } = useGameStore();
+  const loading = loadingAction !== null;
+
+  useEffect(() => {
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === null || e.key === SAVED_GAME_STORAGE_KEY) {
+        setSavedGame(loadSavedGame());
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, []);
 
   const handleCreate = async () => {
-    setLoading(true);
+    setLoadingAction('create');
     setError('');
     try {
       await hostGame();
     } catch {
       setError('Could not reach the signaling server. Check your connection and try again.');
     }
-    setLoading(false);
+    setLoadingAction(null);
+  };
+
+  const handleResume = async () => {
+    if (!savedGame) return;
+    setLoadingAction('resume');
+    setError('');
+    try {
+      await resumeGame(savedGame.gameState);
+    } catch {
+      setError('Could not reach the signaling server. Check your connection and try again.');
+    }
+    setLoadingAction(null);
+  };
+
+  const handleDiscardSaved = () => {
+    clearSavedGame();
+    setSavedGame(null);
   };
 
   const handleJoin = async () => {
@@ -45,14 +83,14 @@ export function Lobby({ peerActions }: LobbyProps) {
       setError('Enter all 4 characters of the room code.');
       return;
     }
-    setLoading(true);
+    setLoadingAction('join');
     setError('');
     try {
       await joinGame(joinCode.toUpperCase());
     } catch (e) {
       setError((e as Error).message);
     }
-    setLoading(false);
+    setLoadingAction(null);
   };
 
   const handleCopyCode = async () => {
@@ -68,6 +106,10 @@ export function Lobby({ peerActions }: LobbyProps) {
   };
 
   if (connectionStatus === 'in-lobby' && roomCode) {
+    const resumingRound = pendingResumeState
+      ? pendingResumeState.roundScores.length + 1
+      : null;
+
     return (
       <main className="tapis-surface h-full overflow-y-auto overscroll-y-contain flex flex-col items-center px-4 py-8">
         <div className="my-auto w-full max-w-md text-center">
@@ -77,10 +119,14 @@ export function Lobby({ peerActions }: LobbyProps) {
 
           <div className="ardoise-panel rounded-2xl p-6 sm:p-8 text-center">
             <p className="text-base font-medium text-[#efe9dc] mb-1">
-              Waiting for your opponent to join
+              {pendingResumeState
+                ? 'Waiting for your opponent to rejoin'
+                : 'Waiting for your opponent to join'}
             </p>
             <p className="text-sm text-[#a4bba9] mb-5">
-              Send them this 4-character code to deal the first hand.
+              {pendingResumeState && resumingRound !== null
+                ? `Resuming Round ${resumingRound} (${pendingResumeState.gameScore[0]}–${pendingResumeState.gameScore[1]}). Send them this 4-character code to continue.`
+                : 'Send them this 4-character code to deal the first hand.'}
             </p>
 
             <div className="tapis-ring rounded-xl px-5 py-4 mb-4 flex items-center justify-between gap-3">
@@ -220,8 +266,56 @@ export function Lobby({ peerActions }: LobbyProps) {
             disabled={loading}
             className="btn-brass w-full font-semibold text-base py-3.5 px-6 rounded-xl cursor-pointer"
           >
-            {loading ? 'Opening table…' : 'Create a table'}
+            {loadingAction === 'create' ? 'Opening table…' : 'Create a table'}
           </button>
+
+          {savedGame && (
+            <div
+              data-testid="saved-game-card"
+              className="mt-3.5 rounded-xl border border-[#d4a84b]/35 bg-[#d4a84b]/8 px-4 py-3 text-left"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <div className="text-xs font-semibold text-[#e3ba62] flex items-center gap-1.5">
+                  <span>Saved game</span>
+                  <span className="text-[#a4bba9]/70 font-normal">·</span>
+                  <span className="text-[#a4bba9] font-normal">
+                    {formatSavedAt(savedGame.savedAt)}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  data-testid="discard-saved-game"
+                  aria-label="Discard saved game"
+                  onClick={handleDiscardSaved}
+                  disabled={loading}
+                  className="text-xs text-[#a4bba9] hover:text-[#efe9dc] cursor-pointer transition-colors disabled:opacity-40"
+                >
+                  Discard
+                </button>
+              </div>
+
+              <div className="mt-2 flex items-center justify-between gap-3">
+                <div className="text-xs sm:text-sm text-[#efe9dc] tabular-nums leading-snug">
+                  <span>
+                    Round {savedGame.gameState.roundScores.length + 1} ·{' '}
+                    {savedGame.gameState.gameScore[0]}–{savedGame.gameState.gameScore[1]}
+                  </span>
+                  <span className="text-[#a4bba9]">
+                    {' '}· {describeSavedPhase(savedGame.gameState)}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  data-testid="resume-game"
+                  onClick={handleResume}
+                  disabled={loading}
+                  className="btn-slate rounded-lg border-[#d4a84b]/45 px-3.5 py-1.5 text-xs font-semibold text-[#e3ba62] shrink-0 cursor-pointer disabled:opacity-40"
+                >
+                  {loadingAction === 'resume' ? 'Opening…' : 'Resume'}
+                </button>
+              </div>
+            </div>
+          )}
 
           <div className="relative my-5 flex items-center">
             <div className="flex-grow border-t border-[#efe9dc]/12" />
@@ -261,7 +355,7 @@ export function Lobby({ peerActions }: LobbyProps) {
               disabled={loading || joinCode.length !== 4}
               className="btn-slate flex-1 font-semibold text-sm sm:text-base py-3 px-4 rounded-xl cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              {loading ? 'Joining…' : 'Join table'}
+              {loadingAction === 'join' ? 'Joining…' : 'Join table'}
             </button>
           </form>
 

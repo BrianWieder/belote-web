@@ -16,6 +16,7 @@ import {
 } from '../networking/peer';
 import { useGameStore } from '../store/gameStore';
 import type { PeerMessage } from '../networking/peer';
+import type { GameState } from '../game/types';
 
 export function usePeer() {
   const {
@@ -24,7 +25,9 @@ export function usePeer() {
     setRoomCode,
     setIsHost,
     setLocalPlayer,
+    setPendingResumeState,
     initGame,
+    receiveResumeGame,
     receiveAction,
     receiveNextRound,
     sendFullState,
@@ -38,6 +41,9 @@ export function usePeer() {
       switch (msg.type) {
         case 'sync-seed':
           initGame(msg.seed, msg.dealer);
+          break;
+        case 'resume-game':
+          receiveResumeGame(msg.state);
           break;
         case 'game-action':
           receiveAction(msg.action, msg.seq);
@@ -80,21 +86,27 @@ export function usePeer() {
       if (!roomCode) return;
       createPeer(true, roomCode);
 
-      // Wait for connection, then send seed. Track the interval so it is
-      // cleared if the connection never establishes or is cancelled.
+      // Wait for connection, then send seed or resumed snapshot. Track the
+      // interval so it is cleared if the connection never establishes or is cancelled.
       if (checkConnectionRef.current) clearInterval(checkConnectionRef.current);
       checkConnectionRef.current = setInterval(() => {
         const store = useGameStore.getState();
         if (store.connectionStatus === 'connected' && store.isHost) {
           if (checkConnectionRef.current) clearInterval(checkConnectionRef.current);
           checkConnectionRef.current = null;
-          // Allow tests/debugging to pin a specific deck via ?seed= in the URL.
-          const seed =
-            new URLSearchParams(window.location.search).get('seed') ??
-            Math.random().toString(36).substring(2);
-          const dealer: 0 | 1 = 0;
-          sendPeerMessage({ type: 'sync-seed', seed, dealer });
-          store.initGame(seed, dealer);
+          if (store.pendingResumeState) {
+            const resumed = store.pendingResumeState;
+            sendPeerMessage({ type: 'resume-game', state: resumed });
+            store.hydrateGame(resumed);
+          } else {
+            // Allow tests/debugging to pin a specific deck via ?seed= in the URL.
+            const seed =
+              new URLSearchParams(window.location.search).get('seed') ??
+              Math.random().toString(36).substring(2);
+            const dealer: 0 | 1 = 0;
+            sendPeerMessage({ type: 'sync-seed', seed, dealer });
+            store.initGame(seed, dealer);
+          }
         }
       }, 100);
     };
@@ -127,6 +139,7 @@ export function usePeer() {
     setConnectionStatus,
     setConnectionError,
     initGame,
+    receiveResumeGame,
     receiveAction,
     receiveNextRound,
     sendFullState,
@@ -135,16 +148,29 @@ export function usePeer() {
 
   const hostGame = useCallback(async () => {
     setConnectionError(null);
+    setPendingResumeState(null);
     await connectSignaling();
     const code = await createSignalingRoom();
     setRoomCode(code);
     setIsHost(true);
     setLocalPlayer(0);
     setConnectionStatus('in-lobby');
-  }, [setConnectionError, setRoomCode, setIsHost, setLocalPlayer, setConnectionStatus]);
+  }, [setConnectionError, setPendingResumeState, setRoomCode, setIsHost, setLocalPlayer, setConnectionStatus]);
+
+  const resumeGame = useCallback(async (savedState: GameState) => {
+    setConnectionError(null);
+    await connectSignaling();
+    const code = await createSignalingRoom();
+    setPendingResumeState(savedState);
+    setRoomCode(code);
+    setIsHost(true);
+    setLocalPlayer(0);
+    setConnectionStatus('in-lobby');
+  }, [setConnectionError, setPendingResumeState, setRoomCode, setIsHost, setLocalPlayer, setConnectionStatus]);
 
   const joinGame = useCallback(async (code: string) => {
     setConnectionError(null);
+    setPendingResumeState(null);
     await connectSignaling();
     const result = await joinSignalingRoom(code);
     if (!result.success) {
@@ -157,7 +183,7 @@ export function usePeer() {
     setConnectionStatus('connecting');
 
     createPeer(false, code);
-  }, [setConnectionError, setRoomCode, setIsHost, setLocalPlayer, setConnectionStatus]);
+  }, [setConnectionError, setPendingResumeState, setRoomCode, setIsHost, setLocalPlayer, setConnectionStatus]);
 
   const cancelConnection = useCallback(() => {
     if (checkConnectionRef.current) clearInterval(checkConnectionRef.current);
@@ -167,5 +193,5 @@ export function usePeer() {
     useGameStore.getState().resetConnection();
   }, []);
 
-  return { hostGame, joinGame, cancelConnection };
+  return { hostGame, resumeGame, joinGame, cancelConnection };
 }

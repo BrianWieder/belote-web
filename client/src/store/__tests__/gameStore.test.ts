@@ -112,4 +112,50 @@ describe('gameStore', () => {
     );
     expect(mockedSend.mock.calls[0][0].state.seed).toBe('store-test');
   });
+
+  it('receiveResumeGame hydrates a guest with no active game', () => {
+    useGameStore.setState({ isHost: false, localPlayer: 1, gameState: null });
+    const snapshot = (() => {
+      useGameStore.getState().initGame('resume-store-test', 0);
+      useGameStore.getState().receiveAction({ type: 'bid-take' }, 1);
+      return structuredClone(useGameStore.getState().gameState!);
+    })();
+
+    useGameStore.setState({ isHost: false, localPlayer: 1, gameState: null });
+    useGameStore.getState().receiveResumeGame(snapshot);
+
+    expect(useGameStore.getState().gameState).toEqual(snapshot);
+  });
+
+  it('receiveResumeGame ignores resume messages when already in a game or when host', () => {
+    useGameStore.getState().initGame('active-seed', 0);
+    const foreign = structuredClone(useGameStore.getState().gameState!);
+    foreign.seed = 'foreign-seed';
+    foreign.sequenceNumber = 9;
+
+    // Guest already in an active game ignores resume-game
+    useGameStore.setState({ isHost: false, localPlayer: 1 });
+    useGameStore.getState().receiveResumeGame(foreign);
+    expect(useGameStore.getState().gameState!.seed).toBe('active-seed');
+
+    // Host ignores resume-game even if gameState is null
+    useGameStore.setState({ isHost: true, localPlayer: 0, gameState: null });
+    useGameStore.getState().receiveResumeGame(foreign);
+    expect(useGameStore.getState().gameState).toBeNull();
+  });
+
+  it('hydrateGame clears pendingResumeState and sets gameState', () => {
+    useGameStore.getState().initGame('hydrate-seed', 0);
+    const saved = structuredClone(useGameStore.getState().gameState!);
+    useGameStore.setState({
+      isHost: true,
+      localPlayer: 0,
+      gameState: null,
+      pendingResumeState: saved,
+    });
+
+    useGameStore.getState().hydrateGame(saved);
+    expect(useGameStore.getState().gameState).toEqual(saved);
+    expect(useGameStore.getState().pendingResumeState).toBeNull();
+  });
 });
