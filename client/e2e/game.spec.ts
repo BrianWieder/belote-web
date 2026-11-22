@@ -92,6 +92,51 @@ test.describe('Two-player Belote game', () => {
     await guestPage.getByTestId('play-area').waitFor({ timeout: 5_000 });
   });
 
+  test('four passes: forced taker sees 8 hand cards before picking trump, tableau stays hidden', async () => {
+    await hostPage.goto('/?seed=test');
+    await hostPage.getByTestId('create-room').click();
+    const roomCode = (await hostPage.getByTestId('room-code').textContent())!.trim();
+
+    await guestPage.goto('/');
+    await guestPage.getByTestId('join-code-input').fill(roomCode);
+    await guestPage.getByTestId('join-room').click();
+
+    await hostPage.getByTestId('game-board').waitFor({ timeout: 15_000 });
+    await guestPage.getByTestId('game-board').waitFor({ timeout: 15_000 });
+
+    const guestHandCards = guestPage.getByLabel('Your hand').locator('> div > div');
+    const hostHandCards = hostPage.getByLabel('Your hand').locator('> div > div');
+
+    // Both players start with 5 cards.
+    await expect(guestHandCards).toHaveCount(5);
+    await expect(hostHandCards).toHaveCount(5);
+
+    // Round 1: both pass (guest is non-dealer and acts first).
+    await guestPage.getByTestId('bid-pass').click();
+    await hostPage.getByTestId('bid-pass').click();
+
+    // Round 2: both pass -> forced bid for non-dealer (guest).
+    await guestPage.getByTestId('bid-pass-round2').click();
+    await hostPage.getByTestId('bid-pass-round2').click();
+
+    // Guest sees their full 8-card hand (5 + top card + 2 from deck) and can pick any suit.
+    await expect(guestPage.getByTestId('your-turn-to-bid')).toHaveText('You must choose trump');
+    await expect(guestHandCards).toHaveCount(8);
+    await expect(hostHandCards).toHaveCount(5);
+    await expect(guestPage.locator('[data-testid^="bid-suit-"]:not([disabled])')).toHaveCount(4);
+    await expect(guestPage.getByTestId('tableau-1')).toHaveCount(0);
+    await expect(hostPage.getByTestId('tableau-0')).toHaveCount(0);
+
+    // Choosing a suit deals host's remaining 3 cards and both tableaus, starting play.
+    await guestPage.getByTestId('bid-suit-hearts').click();
+    await hostPage.getByTestId('play-area').waitFor({ timeout: 5_000 });
+    await guestPage.getByTestId('play-area').waitFor({ timeout: 5_000 });
+    await expect(guestHandCards).toHaveCount(8);
+    await expect(hostHandCards).toHaveCount(8);
+    await expect(guestPage.getByTestId('tableau-1')).toBeVisible();
+    await expect(hostPage.getByTestId('tableau-0')).toBeVisible();
+  });
+
   test('host saves match in localStorage and resumes with a new room code', async () => {
     // 1. Start a match and play 2 tricks
     await hostPage.goto('/');

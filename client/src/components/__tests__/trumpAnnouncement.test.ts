@@ -41,7 +41,7 @@ describe('detectTrumpAnnouncement', () => {
     forced = applyAction(forced, forced.currentPlayer, { type: 'bid-pass' });
 
     const taker = forced.currentPlayer;
-    const chosenSuit = forced.trumpCard!.suit;
+    const chosenSuit = initial.trumpCard!.suit;
     const playing = applyAction(forced, taker, { type: 'bid-choose', suit: chosenSuit });
 
     expect(detectTrumpAnnouncement(forced, playing)).toEqual({

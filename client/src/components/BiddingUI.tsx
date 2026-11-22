@@ -31,6 +31,14 @@ export function BiddingUI() {
         </div>
       )}
 
+      {isForced && !trumpCard && (
+        <p className="text-xs sm:text-sm text-[#a4bba9] text-center">
+          {isMyTurn
+            ? 'All passed — you took the top card and 2 from the deck'
+            : 'All passed — opponent took the top card and 2 from the deck'}
+        </p>
+      )}
+
       {isMyTurn ? (
         <div className="flex flex-col items-center gap-3 w-full">
           <p
