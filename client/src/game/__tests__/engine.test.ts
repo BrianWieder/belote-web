@@ -158,10 +158,12 @@ describe('bidding', () => {
     expect(next.phase).toBe('bidding-round2');
   });
 
-  it('four passes force the non-dealer to take the bid with only original 5 cards visible', () => {
+  it('four passes give the non-dealer the turned-up card and 2 from the deck before choosing trump', () => {
     const state = createInitialState('test', 0);
-    const nonDealer: PlayerID = state.dealer === 0 ? 1 : 0;
+    const dealer = state.dealer;
+    const nonDealer: PlayerID = dealer === 0 ? 1 : 0;
     const trumpCard = state.trumpCard!;
+    const expectedExtraTwo = state.deck.slice(0, 2);
     const p1 = state.currentPlayer;
     const p2 = p1 === 0 ? 1 : 0;
 
@@ -173,13 +175,20 @@ describe('bidding', () => {
     next = applyAction(next, next.currentPlayer, { type: 'bid-pass' });
     next = applyAction(next, next.currentPlayer, { type: 'bid-pass' });
 
-    // Non-dealer is forced to choose while still seeing only original 5 cards + turned-up card.
+    // Non-dealer sees their full 8-card hand (original 5 + turned-up card + 2 from deck)
+    // before choosing trump; dealer still has 5 cards and tableau is not yet dealt.
     expect(next.phase).toBe('bidding-forced');
     expect(next.currentPlayer).toBe(nonDealer);
     expect(next.taker).toBe(nonDealer);
-    expect(next.hands[0]).toHaveLength(5);
-    expect(next.hands[1]).toHaveLength(5);
-    expect(next.trumpCard).toEqual(trumpCard);
+    expect(next.trumpCard).toBeNull();
+    expect(next.hands[nonDealer]).toHaveLength(8);
+    expect(next.hands[dealer]).toHaveLength(5);
+    expect(next.deck).toHaveLength(19);
+    for (const card of [trumpCard, ...expectedExtraTwo]) {
+      expect(next.hands[nonDealer].some(
+        c => c.suit === card.suit && c.rank === card.rank
+      )).toBe(true);
+    }
     for (const playerTableau of next.tableau) {
       for (const slot of playerTableau) {
         expect(slot.faceDown).toBeNull();
@@ -188,10 +197,13 @@ describe('bidding', () => {
     }
   });
 
-  it('forced bid lets the non-dealer pick any suit, then deals turned-up card, remaining hand, and tableau', () => {
+  it('forced bid lets the non-dealer pick any suit, then deals dealer remaining cards and tableau', () => {
     const state = createInitialState('test', 0);
-    const nonDealer: PlayerID = state.dealer === 0 ? 1 : 0;
+    const dealer = state.dealer;
+    const nonDealer: PlayerID = dealer === 0 ? 1 : 0;
     const trumpCard = state.trumpCard!;
+    const expectedExtraTwo = state.deck.slice(0, 2);
+    const expectedDealerThree = state.deck.slice(2, 5);
     const otherSuit: Suit = trumpCard.suit === 'hearts' ? 'spades' : 'hearts';
     const p1 = state.currentPlayer;
     const p2 = p1 === 0 ? 1 : 0;
@@ -211,9 +223,22 @@ describe('bidding', () => {
       expect(next.hands[0]).toHaveLength(8);
       expect(next.hands[1]).toHaveLength(8);
       expect(next.deck).toHaveLength(0);
-      expect(next.hands[nonDealer].some(
-        c => c.suit === trumpCard.suit && c.rank === trumpCard.rank
-      )).toBe(true);
+      for (const card of [trumpCard, ...expectedExtraTwo]) {
+        expect(next.hands[nonDealer].some(
+          c => c.suit === card.suit && c.rank === card.rank
+        )).toBe(true);
+      }
+      for (const card of expectedDealerThree) {
+        expect(next.hands[dealer].some(
+          c => c.suit === card.suit && c.rank === card.rank
+        )).toBe(true);
+      }
+      const allDealtCards = [
+        ...next.hands[0],
+        ...next.hands[1],
+        ...next.tableau.flatMap(t => t.flatMap(s => [s.faceDown!, s.faceUp!])),
+      ];
+      expect(new Set(allDealtCards.map(cardToString)).size).toBe(32);
       for (const playerTableau of next.tableau) {
         for (const slot of playerTableau) {
           expect(slot.faceDown).not.toBeNull();

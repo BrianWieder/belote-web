@@ -157,14 +157,18 @@ function handleBidPass(state: GameState, player: PlayerID): GameState {
   } else {
     // bidding-round2
     if (state.bidPasses >= 2) {
-      // Both passed in round 2 - the non-dealer is forced to take the bid
-      // and choose any suit while seeing only their original 5 cards and
-      // the turned-up proposal card.
+      // Both passed in round 2 - the non-dealer is forced to take the bid.
+      // Give them the turned-up card plus the 2 additional cards from the deck
+      // so they can see their full 8-card hand before choosing any suit as trump.
+      // The dealer's remaining 3 cards and the tableau are dealt once trump is chosen.
       const forced = otherPlayer(state.dealer);
       state.phase = 'bidding-forced';
       state.bidPasses = 0;
       state.taker = forced;
       state.currentPlayer = forced;
+
+      state.hands[forced].push(state.trumpCard!, ...state.deck.splice(0, 2));
+      state.trumpCard = null;
     }
   }
 
@@ -194,10 +198,13 @@ function handleBidChoose(state: GameState, player: PlayerID, suit: Suit): GameSt
     state.taker = player;
     state.trumpSuit = suit;
 
-    // Forced taker takes the turned-up card into their hand (+ 2 from deck = 8)
-    state.hands[player].push(state.trumpCard!);
-    state.trumpCard = null;
+    // Defensive: if resuming a state where trumpCard was not yet taken into hand.
+    if (state.trumpCard) {
+      state.hands[player].push(state.trumpCard);
+      state.trumpCard = null;
+    }
 
+    // Forced taker already has their 8 cards; deal the dealer's remaining 3 and the tableau.
     dealRemainingCards(state);
     dealTableau(state);
   } else {
