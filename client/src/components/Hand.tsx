@@ -1,4 +1,6 @@
 import { useGame, usePlayableCards } from '../hooks/useGame';
+import { useGameStore } from '../store/gameStore';
+import { resolveCardTap } from '../store/preferences';
 import { Card } from './Card';
 import type { Card as CardType, Rank, Suit } from '../game/types';
 import { cardToString } from '../game/types';
@@ -16,6 +18,9 @@ export function Hand() {
     isMyTurn,
   } = useGame();
   const playableCards = usePlayableCards();
+  const twoTapPlay = useGameStore((s) => s.twoTapPlay);
+  const selectedCardKey = useGameStore((s) => s.selectedCardKey);
+  const setSelectedCardKey = useGameStore((s) => s.setSelectedCardKey);
   if (!gameState) return null;
 
   const hand = gameState.hands[localPlayer];
@@ -26,10 +31,19 @@ export function Hand() {
   const playableSet = new Set(playableCards.map((c) => cardToString(c)));
 
   const handleCardClick = (card: CardType) => {
-    if (!canAct) return;
-    if (!playableSet.has(cardToString(card))) return;
-
-    playCard(card);
+    const key = cardToString(card);
+    const outcome = resolveCardTap({
+      cardKey: key,
+      isPlayable: canAct && playableSet.has(key),
+      twoTapPlay,
+      selectedCardKey,
+    });
+    if (outcome.kind === 'select') {
+      setSelectedCardKey(outcome.cardKey);
+    } else if (outcome.kind === 'play') {
+      setSelectedCardKey(null);
+      playCard(card);
+    }
   };
 
   // Sort hand in alternating black/red suit order, and by true Belote trick-taking strength within each suit
@@ -49,14 +63,20 @@ export function Hand() {
         {sorted.map((card, index) => {
           const key = cardToString(card);
           const canPlay = canAct && playableSet.has(key);
+          const isSelected = canPlay && twoTapPlay && selectedCardKey === key;
           const shouldDim = isPlaying && isMyTurn && !canPlay;
           const isTrump = Boolean(trumpSuit && card.suit === trumpSuit);
 
           return (
-            <div key={key} className={index > 0 ? '-ml-2 min-[380px]:-ml-1.5 sm:ml-0' : ''}>
+            <div
+              key={key}
+              className={`${index > 0 ? '-ml-2 min-[380px]:-ml-1.5 sm:ml-0' : ''} ${isSelected ? 'relative z-20' : ''}`}
+            >
               <Card
                 card={card}
                 playable={canPlay}
+                selected={isSelected}
+                twoTapActive={twoTapPlay}
                 dimmed={shouldDim}
                 isTrump={isTrump}
                 onClick={() => handleCardClick(card)}
