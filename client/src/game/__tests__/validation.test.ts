@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { getPlayableCards } from '../validation';
+import {
+  getPlayableCards,
+  isCardPlayable,
+  isBeloteCard,
+  hasBelotePair,
+} from '../validation';
 import { createInitialState, applyAction } from '../engine';
 import { cardToString } from '../types';
 import type { Card, GameState, PlayerID, Suit, PlayerTableau } from '../types';
@@ -134,5 +139,49 @@ describe('getPlayableCards', () => {
     const playable = getPlayableCards(state);
     expect(playable).toHaveLength(2);
     expect(suitsOf(playable)).toEqual(['spades', 'spades']);
+  });
+
+  it('may play any card when trump is led and follower holds no trump', () => {
+    const state = followingState('hearts', 0, c('9', 'hearts'), [
+      c('A', 'spades'),
+      c('7', 'clubs'),
+      c('K', 'diamonds'),
+    ]);
+    const playable = getPlayableCards(state);
+    expect(playable).toHaveLength(3);
+    expect(playable.map(cardToString).sort()).toEqual([
+      cardToString(c('7', 'clubs')),
+      cardToString(c('A', 'spades')),
+      cardToString(c('K', 'diamonds')),
+    ]);
+  });
+});
+
+describe('isCardPlayable', () => {
+  it('returns true only for cards in the legal playable set', () => {
+    const state = followingState('hearts', 0, c('A', 'spades'), [
+      c('7', 'spades'),
+      c('J', 'hearts'),
+    ]);
+    expect(isCardPlayable(state, c('7', 'spades'))).toBe(true);
+    expect(isCardPlayable(state, c('J', 'hearts'))).toBe(false);
+    expect(isCardPlayable(state, c('A', 'clubs'))).toBe(false);
+  });
+});
+
+describe('isBeloteCard and hasBelotePair', () => {
+  it('identifies K and Q of trump as Belote cards', () => {
+    expect(isBeloteCard(c('K', 'hearts'), 'hearts')).toBe(true);
+    expect(isBeloteCard(c('Q', 'hearts'), 'hearts')).toBe(true);
+    expect(isBeloteCard(c('J', 'hearts'), 'hearts')).toBe(false);
+    expect(isBeloteCard(c('K', 'spades'), 'hearts')).toBe(false);
+    expect(isBeloteCard(c('Q', 'spades'), 'hearts')).toBe(false);
+  });
+
+  it('detects whether a hand contains both K and Q of trump', () => {
+    expect(hasBelotePair([c('K', 'hearts'), c('Q', 'hearts'), c('7', 'clubs')], 'hearts')).toBe(true);
+    expect(hasBelotePair([c('K', 'hearts'), c('Q', 'spades')], 'hearts')).toBe(false);
+    expect(hasBelotePair([c('K', 'hearts')], 'hearts')).toBe(false);
+    expect(hasBelotePair([], 'hearts')).toBe(false);
   });
 });
