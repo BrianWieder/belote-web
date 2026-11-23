@@ -7,6 +7,7 @@ import {
   clearSavedGame,
   describeSavedPhase,
   formatSavedAt,
+  isValidGameState,
   isValidResumableGameState,
   loadSavedGame,
   saveHostGame,
@@ -86,6 +87,8 @@ describe('savedGame persistence', () => {
     const initial = createInitialState('validate-seed', 0);
     expect(isValidResumableGameState(initial)).toBe(true);
     expect(isValidResumableGameState({ ...initial, phase: 'game-over' })).toBe(false);
+    expect(isValidGameState({ ...initial, phase: 'game-over' })).toBe(true);
+    expect(isValidGameState({ ...initial, phase: 'bogus-phase' })).toBe(false);
     expect(isValidResumableGameState({ ...initial, seed: '' })).toBe(false);
     expect(isValidResumableGameState({ ...initial, hands: [initial.hands[0]] })).toBe(false);
     expect(isValidResumableGameState({ ...initial, roundScores: [{ bad: true }] })).toBe(false);

@@ -363,6 +363,7 @@ export function startNewRound(state: GameState): GameState {
   next.tableau = [emptyTableau(), emptyTableau()];
   next.beloteDeclared = [false, false];
   next.rebeloteDeclared = [false, false];
+  next.sequenceNumber++;
 
   dealCards(next);
   return next;

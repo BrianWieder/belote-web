@@ -49,7 +49,7 @@ export function usePeer() {
           receiveAction(msg.action, msg.seq);
           break;
         case 'new-round':
-          receiveNextRound();
+          receiveNextRound(msg.seq);
           break;
         case 'resync-request':
           sendFullState();
@@ -102,7 +102,9 @@ export function usePeer() {
             // Allow tests/debugging to pin a specific deck via ?seed= in the URL.
             const seed =
               new URLSearchParams(window.location.search).get('seed') ??
-              Math.random().toString(36).substring(2);
+              (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+                ? crypto.randomUUID()
+                : Math.random().toString(36).substring(2));
             const dealer: 0 | 1 = 0;
             sendPeerMessage({ type: 'sync-seed', seed, dealer });
             store.initGame(seed, dealer);

@@ -56,7 +56,7 @@ Belote Maniee is a two-player French trick-taking card game using a 32-card deck
 - **Trump card values**: J=20, 9=14, A=11, 10=10, K=4, Q=3
 - **Non-trump values**: A=11, 10=10, K=4, Q=3, J=2
 - **Belote**: Playing both King and Queen of trump (belote/rebelote) scores 20 bonus points, provided both are visible (in hand or face-up on the tableau) when the first is played and you win at least one trick
-- **Dedans**: If the taker's total points (including bonuses) are less than or equal to the opponent's, all 162 card points go to the opponent (except the taker retains their last-trick and belote bonuses)
+- **Dedans**: If the taker's total points (including bonuses) are less than or equal to the opponent's, the opponent receives all 162 points (including the 10-point last-trick bonus); only Belote/Rebelote (20 points) stays with the player who declared it
 
 ## Testing
 

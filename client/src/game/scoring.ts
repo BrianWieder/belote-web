@@ -89,11 +89,11 @@ export function calculateRoundScore(
   const finalPoints: [number, number] = [0, 0];
 
   if (dedans) {
-    // Defender takes all 162 card points. The last-trick bonus goes to its
-    // actual winner (kept even on dedans), and belote bonuses stay with
-    // the player who declared them.
-    finalPoints[taker] = lastTrickBonusPts[taker] + beloteBonusPts[taker];
-    finalPoints[defender] = 162 - lastTrickBonusPts[taker] + beloteBonusPts[defender];
+    // Defender receives all 162 points (152 card points + 10 dix de der).
+    // Only Belote/Rebelote (20 pts) is imprenable and stays with the player
+    // who declared it.
+    finalPoints[taker] = beloteBonusPts[taker];
+    finalPoints[defender] = 162 + beloteBonusPts[defender];
   } else {
     finalPoints[0] = rawPoints[0];
     finalPoints[1] = rawPoints[1];

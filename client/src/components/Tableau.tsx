@@ -11,6 +11,7 @@ export function Tableau({ player }: TableauProps) {
   const {
     gameState,
     localPlayer,
+    isConnected,
     playCard,
     playableCards,
     isMyTurn,
@@ -20,11 +21,12 @@ export function Tableau({ player }: TableauProps) {
   const tableau = gameState.tableau[player];
   const isLocal = player === localPlayer;
   const isPlaying = gameState.phase === 'playing';
+  const canAct = isLocal && isPlaying && isMyTurn && isConnected;
 
   const playableSet = new Set(playableCards.map((c) => cardToString(c)));
 
   const handleCardClick = (card: CardType) => {
-    if (!isLocal || !isMyTurn || !isPlaying) return;
+    if (!canAct) return;
     if (!playableSet.has(cardToString(card))) return;
 
     playCard(card);
@@ -51,7 +53,7 @@ export function Tableau({ player }: TableauProps) {
 
         const faceUpCard = slot.faceUp;
         const canPlay =
-          isLocal && isPlaying && isMyTurn && faceUpCard
+          canAct && faceUpCard
             ? playableSet.has(cardToString(faceUpCard))
             : false;
         const shouldDim = isLocal && isPlaying && isMyTurn && !canPlay;

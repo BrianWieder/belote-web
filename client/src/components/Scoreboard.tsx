@@ -240,7 +240,10 @@ export function GameOver({ disconnected, onReturnToLobby }: DialogDisconnectProp
   if (!gameState || gameState.phase !== 'game-over') return null;
 
   const opponent: PlayerID = localPlayer === 0 ? 1 : 0;
-  const won = gameState.gameScore[localPlayer] >= gameState.gameScore[opponent];
+  const myScore = gameState.gameScore[localPlayer];
+  const oppScore = gameState.gameScore[opponent];
+  const isDraw = myScore === oppScore;
+  const won = myScore > oppScore;
 
   return (
     <div
@@ -254,7 +257,7 @@ export function GameOver({ disconnected, onReturnToLobby }: DialogDisconnectProp
           id="game-over-heading"
           className="font-display text-3xl sm:text-4xl font-semibold mb-2"
         >
-          {won ? 'You Win!' : 'Opponent Wins'}
+          {isDraw ? "It's a Draw!" : won ? 'You Win!' : 'Opponent Wins'}
         </h2>
         <p className="text-sm text-[#a4bba9] mb-5">
           {gameState.roundScores.length} {gameState.roundScores.length === 1 ? 'round' : 'rounds'} played
