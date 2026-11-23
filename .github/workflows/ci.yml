@@ -84,3 +84,6 @@ jobs:
       - name: Typecheck server
         working-directory: ./server
         run: npx tsc --noEmit
+
+      - name: Run server tests
+        run: npm test --workspace=server
