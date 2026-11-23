@@ -1,6 +1,7 @@
 import { io, Socket } from 'socket.io-client';
 
-const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
+export const SERVER_URL =
+  import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
 
 let socket: Socket | null = null;
 
@@ -37,9 +38,13 @@ export function connectSignaling(timeoutMs = 10_000): Promise<void> {
 
 export function createRoom(): Promise<string> {
   const s = getSocket();
-  return new Promise((resolve) => {
-    s.emit('create-room', (data: { code: string }) => {
-      resolve(data.code);
+  return new Promise((resolve, reject) => {
+    s.emit('create-room', (data: { code?: string; error?: string }) => {
+      if (data?.code) {
+        resolve(data.code);
+      } else {
+        reject(new Error(data?.error || 'Failed to create room'));
+      }
     });
   });
 }

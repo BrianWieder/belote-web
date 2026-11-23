@@ -8,6 +8,7 @@ import {
 } from '../networking/signaling';
 import {
   createPeer,
+  getIceServers,
   setMessageHandler,
   setStatusHandler,
   sendPeerMessage,
@@ -63,6 +64,10 @@ export function usePeer() {
         setConnectionError(null);
         setConnectionStatus('connected');
       } else if (status === 'disconnected') {
+        if (checkConnectionRef.current) {
+          clearInterval(checkConnectionRef.current);
+          checkConnectionRef.current = null;
+        }
         // If a game is in progress, mark disconnected. Otherwise we're still
         // setting up the WebRTC connection — surface an error in the lobby
         // instead of silently dropping the user back to the home screen.
@@ -82,7 +87,7 @@ export function usePeer() {
     const handlePeerJoined = () => {
       const { roomCode } = useGameStore.getState();
       if (!roomCode) return;
-      createPeer(true, roomCode);
+      void createPeer(true, roomCode);
 
       // Wait for connection, then send seed or resumed snapshot. Track the
       // interval so it is cleared if the connection never establishes or is cancelled.
@@ -150,6 +155,7 @@ export function usePeer() {
     setConnectionError(null);
     setPendingResumeState(null);
     await connectSignaling();
+    void getIceServers();
     const code = await createSignalingRoom();
     setRoomCode(code);
     setIsHost(true);
@@ -160,6 +166,7 @@ export function usePeer() {
   const resumeGame = useCallback(async (savedState: GameState) => {
     setConnectionError(null);
     await connectSignaling();
+    void getIceServers();
     const code = await createSignalingRoom();
     setPendingResumeState(savedState);
     setRoomCode(code);
@@ -172,6 +179,7 @@ export function usePeer() {
     setConnectionError(null);
     setPendingResumeState(null);
     await connectSignaling();
+    void getIceServers();
     const result = await joinSignalingRoom(code);
     if (!result.success) {
       throw new Error(result.error || 'Failed to join room');
@@ -182,7 +190,7 @@ export function usePeer() {
     setLocalPlayer(1);
     setConnectionStatus('connecting');
 
-    createPeer(false, code);
+    void createPeer(false, code);
   }, [setConnectionError, setPendingResumeState, setRoomCode, setIsHost, setLocalPlayer, setConnectionStatus]);
 
   const cancelConnection = useCallback(() => {
