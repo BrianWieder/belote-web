@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { useGame, usePlayableCards } from '../hooks/useGame';
 import { useGameStore } from '../store/gameStore';
+import { resolveCardTap } from '../store/preferences';
 import { Card } from './Card';
 import { detectUncoveredTableauSlots } from './detectTableauFlip';
 import type { Card as CardType, PlayerID, TableauSlot } from '../game/types';
@@ -22,6 +23,9 @@ export function Tableau({ player }: TableauProps) {
     isMyTurn,
   } = useGame();
   const playableCards = usePlayableCards();
+  const twoTapPlay = useGameStore((s) => s.twoTapPlay);
+  const selectedCardKey = useGameStore((s) => s.selectedCardKey);
+  const setSelectedCardKey = useGameStore((s) => s.setSelectedCardKey);
   const prefersReducedMotion = useReducedMotion();
   const [revealedSlots, setRevealedSlots] = useState<Record<number, string>>({});
 
@@ -91,10 +95,19 @@ export function Tableau({ player }: TableauProps) {
   const playableSet = new Set(playableCards.map((c) => cardToString(c)));
 
   const handleCardClick = (card: CardType) => {
-    if (!canAct) return;
-    if (!playableSet.has(cardToString(card))) return;
-
-    playCard(card);
+    const key = cardToString(card);
+    const outcome = resolveCardTap({
+      cardKey: key,
+      isPlayable: canAct && playableSet.has(key),
+      twoTapPlay,
+      selectedCardKey,
+    });
+    if (outcome.kind === 'select') {
+      setSelectedCardKey(outcome.cardKey);
+    } else if (outcome.kind === 'play') {
+      setSelectedCardKey(null);
+      playCard(card);
+    }
   };
 
   return (
@@ -123,6 +136,7 @@ export function Tableau({ player }: TableauProps) {
           canAct && faceUpKey
             ? playableSet.has(faceUpKey)
             : false;
+        const isSelected = Boolean(canPlay && twoTapPlay && faceUpKey && selectedCardKey === faceUpKey);
         const shouldDim = isLocal && isPlaying && isMyTurn && !canPlay;
         const isTrump = Boolean(
           faceUpCard && gameState.trumpSuit && faceUpCard.suit === gameState.trumpSuit,
@@ -131,7 +145,9 @@ export function Tableau({ player }: TableauProps) {
         return (
           <div
             key={i}
-            className="relative w-11 h-[5rem] tall-sm:w-14 tall-sm:h-[5.9rem] ultra-short:h-[4.35rem]"
+            className={`relative w-11 h-[5rem] tall-sm:w-14 tall-sm:h-[5.9rem] ultra-short:h-[4.35rem] ${
+              isSelected ? 'z-20' : ''
+            }`}
           >
             {/* Buried face-down card */}
             {slot.faceDown && (
@@ -187,6 +203,8 @@ export function Tableau({ player }: TableauProps) {
                 <Card
                   card={faceUpCard}
                   playable={canPlay}
+                  selected={isSelected}
+                  twoTapActive={twoTapPlay}
                   dimmed={shouldDim}
                   isTrump={isTrump}
                   size="sm"

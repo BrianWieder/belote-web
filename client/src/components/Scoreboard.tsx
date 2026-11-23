@@ -1,5 +1,7 @@
-import { useSyncExternalStore } from 'react';
+import { useRef, useSyncExternalStore } from 'react';
 import { useGame } from '../hooks/useGame';
+import { useFocusTrap } from '../hooks/useFocusTrap';
+import { useGameStore } from '../store/gameStore';
 import { isMuted, subscribeMuted, toggleMuted } from '../audio/sounds';
 import { SuitIcon } from './Card';
 import { SUIT_NAMES, isRedSuit } from './suits';
@@ -10,6 +12,8 @@ const TARGET_SCORE = 1000;
 export function Scoreboard() {
   const { gameState, localPlayer } = useGame();
   const muted = useSyncExternalStore(subscribeMuted, isMuted, () => false);
+  const twoTapPlay = useGameStore((s) => s.twoTapPlay);
+  const toggleTwoTapPlay = useGameStore((s) => s.toggleTwoTapPlay);
   if (!gameState) return null;
 
   const opponent: PlayerID = localPlayer === 0 ? 1 : 0;
@@ -50,14 +54,35 @@ export function Scoreboard() {
             </div>
           </div>
 
-          {/* Center round & target */}
-          <div className="text-center">
+          {/* Center round, target & 2-tap toggle */}
+          <div className="flex flex-col items-center text-center">
             <div className="font-display text-xs sm:text-sm font-medium text-[#efe9dc]">
               Round {roundNum}
             </div>
             <div className="text-[11px] text-[#73907c] tabular-nums">
               First to 1,000
             </div>
+            <button
+              type="button"
+              data-testid="two-tap-toggle"
+              aria-pressed={twoTapPlay}
+              aria-label="2-tap: Require two taps to play a card"
+              title="Require two taps to play a card"
+              onClick={toggleTwoTapPlay}
+              className={`mt-1 inline-flex items-center gap-1 rounded-full border px-2 py-[1px] text-[10px] font-medium transition-colors cursor-pointer ${
+                twoTapPlay
+                  ? 'bg-[#d4a84b]/22 border-[#d4a84b]/65 text-[#e3ba62]'
+                  : 'bg-[#efe9dc]/6 border-[#efe9dc]/18 text-[#a4bba9] hover:border-[#efe9dc]/35 hover:text-[#efe9dc]'
+              }`}
+            >
+              <span
+                aria-hidden="true"
+                className={`w-1.5 h-1.5 rounded-full ${
+                  twoTapPlay ? 'bg-[#e3ba62]' : 'bg-[#73907c]/65'
+                }`}
+              />
+              2-tap
+            </button>
           </div>
 
           {/* Opponent score */}
@@ -146,10 +171,17 @@ interface DialogDisconnectProps {
 
 export function RoundSummary({ disconnected, matchSaved, onReturnToLobby }: DialogDisconnectProps) {
   const { gameState, localPlayer, nextRound } = useGame();
-  if (!gameState || gameState.phase !== 'round-over') return null;
+  const dialogRef = useRef<HTMLDivElement>(null);
 
-  const lastScore = gameState.roundScores[gameState.roundScores.length - 1];
-  if (!lastScore) return null;
+  const lastScore =
+    gameState && gameState.phase === 'round-over'
+      ? gameState.roundScores[gameState.roundScores.length - 1] ?? null
+      : null;
+  const isOpen = Boolean(lastScore);
+
+  useFocusTrap(dialogRef, isOpen);
+
+  if (!gameState || !lastScore) return null;
 
   const opponent: PlayerID = localPlayer === 0 ? 1 : 0;
   const red = isRedSuit(lastScore.trumpSuit);
@@ -162,7 +194,11 @@ export function RoundSummary({ disconnected, matchSaved, onReturnToLobby }: Dial
       aria-labelledby="round-summary-heading"
       className="fixed inset-0 bg-[#06110c]/75 backdrop-blur-xs flex items-center justify-center z-50 p-4"
     >
-      <div className="ardoise-panel rounded-2xl p-6 sm:p-7 max-w-sm w-full text-[#efe9dc]">
+      <div
+        ref={dialogRef}
+        tabIndex={-1}
+        className="ardoise-panel rounded-2xl p-6 sm:p-7 max-w-sm w-full text-[#efe9dc] focus:outline-none"
+      >
         <h2
           id="round-summary-heading"
           data-testid="round-summary-title"
@@ -291,7 +327,12 @@ export function RoundSummary({ disconnected, matchSaved, onReturnToLobby }: Dial
 
 export function GameOver({ disconnected, onReturnToLobby }: DialogDisconnectProps) {
   const { gameState, localPlayer } = useGame();
-  if (!gameState || gameState.phase !== 'game-over') return null;
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const isOpen = Boolean(gameState && gameState.phase === 'game-over');
+
+  useFocusTrap(dialogRef, isOpen);
+
+  if (!gameState || !isOpen) return null;
 
   const opponent: PlayerID = localPlayer === 0 ? 1 : 0;
   const myScore = gameState.gameScore[localPlayer];
@@ -306,7 +347,11 @@ export function GameOver({ disconnected, onReturnToLobby }: DialogDisconnectProp
       aria-labelledby="game-over-heading"
       className="fixed inset-0 bg-[#06110c]/80 backdrop-blur-xs flex items-center justify-center z-50 p-4"
     >
-      <div className="ardoise-panel rounded-2xl p-7 sm:p-8 max-w-sm w-full text-[#efe9dc] text-center">
+      <div
+        ref={dialogRef}
+        tabIndex={-1}
+        className="ardoise-panel rounded-2xl p-7 sm:p-8 max-w-sm w-full text-[#efe9dc] text-center focus:outline-none"
+      >
         <h2
           id="game-over-heading"
           className="font-display text-3xl sm:text-4xl font-semibold mb-2"

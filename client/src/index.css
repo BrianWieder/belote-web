@@ -204,6 +204,21 @@ input:focus-visible {
   transform: translateY(-4px);
 }
 
+.playing-card-selected {
+  transform: none;
+  border-color: var(--brass-bright);
+  box-shadow:
+    0 16px 28px rgba(5, 14, 10, 0.62),
+    0 0 0 2.5px var(--brass-bright),
+    0 0 18px rgba(227, 186, 98, 0.52),
+    inset 0 1px 0 rgba(255, 255, 255, 0.96);
+}
+
+.playing-card-selected:hover,
+.playing-card-selected:active {
+  transform: none;
+}
+
 .playing-card-dimmed {
   filter: brightness(0.76) saturate(0.82);
 }

@@ -5,6 +5,7 @@ import { getPlayableCards } from '../game/validation';
 import { sendPeerMessage } from '../networking/peer';
 import { addGameBreadcrumb, setGameContext } from '../telemetry';
 import { isValidGameState, isValidResumableGameState, saveHostGame } from './savedGame';
+import { loadTwoTapPlay, saveTwoTapPlay } from './preferences';
 
 function persistIfHost(gameState: GameState, isHost: boolean, localPlayer: PlayerID): boolean {
   if (isHost && localPlayer === 0) {
@@ -28,6 +29,10 @@ interface GameStore {
   pendingResumeState: GameState | null;
   hostGameSaved: boolean;
 
+  // UI preferences & interaction state
+  twoTapPlay: boolean;
+  selectedCardKey: string | null;
+
   // Actions
   setConnectionStatus: (status: ConnectionStatus) => void;
   setConnectionError: (err: string | null) => void;
@@ -36,6 +41,9 @@ interface GameStore {
   setIsHost: (isHost: boolean) => void;
   setLocalPlayer: (player: PlayerID) => void;
   setPendingResumeState: (state: GameState | null) => void;
+  setTwoTapPlay: (enabled: boolean) => void;
+  toggleTwoTapPlay: () => void;
+  setSelectedCardKey: (key: string | null) => void;
 
   initGame: (seed: string, dealer: PlayerID) => void;
   hydrateGame: (state: GameState) => void;
@@ -62,6 +70,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
   gameState: null,
   pendingResumeState: null,
   hostGameSaved: false,
+  twoTapPlay: loadTwoTapPlay(),
+  selectedCardKey: null,
 
   setConnectionStatus: (status) => set({ connectionStatus: status }),
   setConnectionError: (err) => set({ connectionError: err }),
@@ -74,17 +84,30 @@ export const useGameStore = create<GameStore>((set, get) => ({
     gameState: null,
     pendingResumeState: null,
     hostGameSaved: false,
+    selectedCardKey: null,
   }),
   setRoomCode: (code) => set({ roomCode: code }),
   setIsHost: (isHost) => set({ isHost }),
   setLocalPlayer: (player) => set({ localPlayer: player }),
   setPendingResumeState: (state) => set({ pendingResumeState: state }),
+  setTwoTapPlay: (enabled) => {
+    saveTwoTapPlay(enabled);
+    set((state) => ({
+      twoTapPlay: enabled,
+      selectedCardKey: enabled ? state.selectedCardKey : null,
+    }));
+  },
+  toggleTwoTapPlay: () => {
+    const next = !get().twoTapPlay;
+    get().setTwoTapPlay(next);
+  },
+  setSelectedCardKey: (key) => set({ selectedCardKey: key }),
 
   initGame: (seed, dealer) => {
     const state = createInitialState(seed, dealer);
     const { isHost, localPlayer } = get();
     const saved = persistIfHost(state, isHost, localPlayer);
-    set({ gameState: state, pendingResumeState: null, hostGameSaved: saved });
+    set({ gameState: state, pendingResumeState: null, hostGameSaved: saved, selectedCardKey: null });
     setGameContext(state, localPlayer);
     addGameBreadcrumb(`Game initialized (seed: ${seed}, dealer: ${dealer})`);
   },
@@ -92,7 +115,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   hydrateGame: (state) => {
     const { isHost, localPlayer } = get();
     const saved = persistIfHost(state, isHost, localPlayer);
-    set({ gameState: state, pendingResumeState: null, hostGameSaved: saved });
+    set({ gameState: state, pendingResumeState: null, hostGameSaved: saved, selectedCardKey: null });
     setGameContext(state, localPlayer);
     addGameBreadcrumb(`Game resumed (seed: ${state.seed}, seq: ${state.sequenceNumber})`);
   },
@@ -123,7 +146,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }
 
     const saved = persistIfHost(next, isHost, localPlayer);
-    set({ gameState: next, hostGameSaved: saved });
+    set({ gameState: next, hostGameSaved: saved, selectedCardKey: null });
     setGameContext(next, localPlayer);
     addGameBreadcrumb(`Local action: ${action.type}`, 'info', action);
   },
@@ -148,7 +171,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (next.sequenceNumber === gameState.sequenceNumber) return; // action was rejected
 
     const saved = persistIfHost(next, isHost, localPlayer);
-    set({ gameState: next, hostGameSaved: saved });
+    set({ gameState: next, hostGameSaved: saved, selectedCardKey: null });
     setGameContext(next, localPlayer);
     addGameBreadcrumb(`Remote action: ${action.type}`, 'info', action);
   },
@@ -174,7 +197,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (state.sequenceNumber < gameState.sequenceNumber) return;
 
     const saved = persistIfHost(state, isHost, localPlayer);
-    set({ gameState: state, hostGameSaved: saved });
+    set({ gameState: state, hostGameSaved: saved, selectedCardKey: null });
     setGameContext(state, localPlayer);
     addGameBreadcrumb('Received full state resync');
   },
@@ -189,7 +212,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }
 
     const saved = persistIfHost(next, isHost, localPlayer);
-    set({ gameState: next, hostGameSaved: saved });
+    set({ gameState: next, hostGameSaved: saved, selectedCardKey: null });
     setGameContext(next, localPlayer);
   },
 
@@ -220,7 +243,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     const next = startNewRound(gameState);
     const saved = persistIfHost(next, isHost, localPlayer);
-    set({ gameState: next, hostGameSaved: saved });
+    set({ gameState: next, hostGameSaved: saved, selectedCardKey: null });
     setGameContext(next, localPlayer);
   },
 

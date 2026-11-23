@@ -40,6 +40,8 @@ type CardSize = 'xs' | 'sm' | 'md';
 interface CardProps {
   card: CardType;
   playable?: boolean;
+  selected?: boolean;
+  twoTapActive?: boolean;
   dimmed?: boolean;
   faceDown?: boolean;
   small?: boolean;
@@ -58,6 +60,8 @@ const SIZE_CLASSES: Record<CardSize, string> = {
 export function Card({
   card,
   playable = false,
+  selected = false,
+  twoTapActive = false,
   dimmed = false,
   faceDown = false,
   small = false,
@@ -161,6 +165,7 @@ export function Card({
     px-1 py-[3px] tall-sm:p-1.5
     select-none
     ${playable ? 'playing-card-playable' : 'cursor-default'}
+    ${selected && playable ? 'playing-card-selected' : ''}
     ${dimmed && !playable ? 'playing-card-dimmed' : ''}
     ${inkColor}
   `;
@@ -177,12 +182,16 @@ export function Card({
     );
   }
 
+  const isSelected = selected && playable;
+
   return (
     <button
       type="button"
       data-testid={`card-${card.rank}-${card.suit}`}
       data-playable={playable || undefined}
-      aria-label={`${card.rank} of ${SUIT_NAMES[card.suit]}`}
+      data-selected={isSelected || undefined}
+      aria-pressed={twoTapActive && playable ? isSelected : undefined}
+      aria-label={`${card.rank} of ${SUIT_NAMES[card.suit]}${isSelected ? ', selected — tap again to play' : ''}`}
       onClick={onClick}
       disabled={!playable}
       className={cardClasses}
