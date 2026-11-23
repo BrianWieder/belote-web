@@ -19,20 +19,18 @@ import type { PeerMessage } from '../networking/peer';
 import type { GameState } from '../game/types';
 
 export function usePeer() {
-  const {
-    setConnectionStatus,
-    setConnectionError,
-    setRoomCode,
-    setIsHost,
-    setLocalPlayer,
-    setPendingResumeState,
-    initGame,
-    receiveResumeGame,
-    receiveAction,
-    receiveNextRound,
-    sendFullState,
-    receiveGameState,
-  } = useGameStore();
+  const setConnectionStatus = useGameStore((s) => s.setConnectionStatus);
+  const setConnectionError = useGameStore((s) => s.setConnectionError);
+  const setRoomCode = useGameStore((s) => s.setRoomCode);
+  const setIsHost = useGameStore((s) => s.setIsHost);
+  const setLocalPlayer = useGameStore((s) => s.setLocalPlayer);
+  const setPendingResumeState = useGameStore((s) => s.setPendingResumeState);
+  const initGame = useGameStore((s) => s.initGame);
+  const receiveResumeGame = useGameStore((s) => s.receiveResumeGame);
+  const receiveAction = useGameStore((s) => s.receiveAction);
+  const receiveNextRound = useGameStore((s) => s.receiveNextRound);
+  const sendFullState = useGameStore((s) => s.sendFullState);
+  const receiveGameState = useGameStore((s) => s.receiveGameState);
 
   const checkConnectionRef = useRef<ReturnType<typeof setInterval> | null>(null);
 

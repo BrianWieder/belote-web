@@ -4,10 +4,10 @@ import { Lobby } from './components/Lobby';
 import { GameBoard } from './components/GameBoard';
 
 function App() {
-  const { gameState } = useGameStore();
+  const hasGame = useGameStore((s) => s.gameState !== null);
   const peerActions = usePeer();
 
-  if (gameState) {
+  if (hasGame) {
     return <GameBoard />;
   }
 
