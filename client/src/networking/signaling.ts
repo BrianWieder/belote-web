@@ -1,14 +1,53 @@
 import { io, Socket } from 'socket.io-client';
 
 const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '[::1]']);
+const HAS_HIERARCHICAL_SCHEME = /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//;
+const HAS_NON_PORT_SCHEME = /^[a-zA-Z][a-zA-Z0-9+.-]*:(?!\d+(?:[/?#]|$))/;
+
+function isValidSchemelessHost(hostname: string): boolean {
+  const normalized = hostname.toLowerCase();
+  if (LOOPBACK_HOSTS.has(normalized)) {
+    return true;
+  }
+  return (
+    normalized.includes('.') &&
+    !normalized.startsWith('.') &&
+    !normalized.endsWith('.') &&
+    !normalized.includes('..')
+  );
+}
 
 export function resolveServerUrl(rawUrl?: string): string {
   const value = (rawUrl ?? '').trim() || 'http://localhost:3001';
   let parsed: URL;
-  try {
-    parsed = new URL(value);
-  } catch {
-    throw new Error(`Invalid signaling server URL: "${value}"`);
+  if (HAS_HIERARCHICAL_SCHEME.test(value) || HAS_NON_PORT_SCHEME.test(value)) {
+    try {
+      parsed = new URL(value);
+    } catch {
+      throw new Error(`Invalid signaling server URL: "${value}"`);
+    }
+  } else {
+    // Support bare hostnames (e.g. Railway's RAILWAY_PUBLIC_DOMAIN such as
+    // "belote-server.bwieder.com") and protocol-relative URLs ("//host").
+    const candidate = value.startsWith('//') ? value.slice(2) : value;
+    if (!candidate || candidate.startsWith('/') || /\s/.test(candidate)) {
+      throw new Error(`Invalid signaling server URL: "${value}"`);
+    }
+    try {
+      parsed = new URL(`https://${candidate}`);
+    } catch {
+      throw new Error(`Invalid signaling server URL: "${value}"`);
+    }
+    if (
+      parsed.username ||
+      parsed.password ||
+      !isValidSchemelessHost(parsed.hostname)
+    ) {
+      throw new Error(`Invalid signaling server URL: "${value}"`);
+    }
+    if (LOOPBACK_HOSTS.has(parsed.hostname.toLowerCase())) {
+      parsed = new URL(`http://${candidate}`);
+    }
   }
 
   const isSecure = parsed.protocol === 'https:' || parsed.protocol === 'wss:';

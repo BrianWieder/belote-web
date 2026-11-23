@@ -124,7 +124,44 @@ describe('signaling', () => {
     expect(resolveServerUrl('wss://signal.example.com')).toBe('wss://signal.example.com');
     expect(() => resolveServerUrl('http://signal.example.com')).toThrow(/must use https/i);
     expect(() => resolveServerUrl('ws://signal.example.com')).toThrow(/must use https/i);
+    expect(() => resolveServerUrl('ftp://signal.example.com')).toThrow(
+      /Unsupported signaling server protocol/i,
+    );
+    expect(() => resolveServerUrl('javascript:alert(1)')).toThrow(
+      /Unsupported signaling server protocol/i,
+    );
     expect(() => resolveServerUrl('not-a-url')).toThrow(/Invalid signaling server URL/i);
+  });
+
+  it('normalizes schemeless hostnames and protocol-relative URLs', () => {
+    expect(resolveServerUrl('belote-server.bwieder.com')).toBe(
+      'https://belote-server.bwieder.com',
+    );
+    expect(resolveServerUrl('BELOTE-SERVER.BWIEDER.COM/')).toBe(
+      'https://belote-server.bwieder.com',
+    );
+    expect(resolveServerUrl('belote-server.bwieder.com:8443/signal?v=1')).toBe(
+      'https://belote-server.bwieder.com:8443/signal?v=1',
+    );
+    expect(resolveServerUrl('//belote-server.bwieder.com')).toBe(
+      'https://belote-server.bwieder.com',
+    );
+    expect(resolveServerUrl('localhost:3001')).toBe('http://localhost:3001');
+    expect(resolveServerUrl('localhost:443')).toBe('http://localhost:443');
+    expect(resolveServerUrl('127.0.0.1:3001')).toBe('http://127.0.0.1:3001');
+    expect(resolveServerUrl('[::1]:3001')).toBe('http://[::1]:3001');
+    expect(() => resolveServerUrl('/relative/path')).toThrow(/Invalid signaling server URL/i);
+    expect(() => resolveServerUrl('///belote-server.bwieder.com')).toThrow(
+      /Invalid signaling server URL/i,
+    );
+    expect(() => resolveServerUrl('.example.com')).toThrow(/Invalid signaling server URL/i);
+    expect(() => resolveServerUrl('bad..example.com')).toThrow(/Invalid signaling server URL/i);
+    expect(() => resolveServerUrl('user@belote-server.bwieder.com')).toThrow(
+      /Invalid signaling server URL/i,
+    );
+    expect(() => resolveServerUrl('belote-server.bwieder.com extra')).toThrow(
+      /Invalid signaling server URL/i,
+    );
   });
 
   it('connectSignaling resolves immediately when already connected', async () => {
