@@ -7,7 +7,8 @@ vi.mock('../../networking/peer', () => ({
 import { useGameStore } from '../gameStore';
 import { sendPeerMessage } from '../../networking/peer';
 import { createInitialState } from '../../game/engine';
-import { DEFAULT_MATCH_OPTIONS } from '../../game/types';
+import { getPlayableCards } from '../../game/validation';
+import { cardToString, DEFAULT_MATCH_OPTIONS } from '../../game/types';
 import { REACTION_COOLDOWN_MS } from '../../game/reactions';
 import { SAVED_GAME_STORAGE_KEY } from '../savedGame';
 import type { GameState, PlayerID, RoundScore } from '../../game/types';
@@ -682,10 +683,13 @@ describe('gameStore', () => {
       useGameStore.getState().receiveGameState(unrelated);
       expect(mockedSend).not.toHaveBeenCalled();
 
-      // Once guest sends a valid action on the new match (or matching-seed state), pendingRematchStart clears
-      // (dealer is 1, so host acts first; after host acts, guest acts, or guest sends matching-seed state)
-      useGameStore.getState().performAction({ type: 'bid-pass' });
-      useGameStore.getState().receiveAction({ type: 'bid-take' }, 2);
+      // Once guest sends a valid action on the new match (or matching-seed state), pendingRematchStart clears.
+      // Use bid-take + legal card plays instead of bid-pass so a randomly turned-up Jack cannot reject the pass.
+      useGameStore.getState().performAction({ type: 'bid-take' });
+      const hostLead = getPlayableCards(useGameStore.getState().gameState!)[0];
+      useGameStore.getState().performAction({ type: 'play-card', card: cardToString(hostLead) });
+      const guestFollow = getPlayableCards(useGameStore.getState().gameState!)[0];
+      useGameStore.getState().receiveAction({ type: 'play-card', card: cardToString(guestFollow) }, 3);
       expect(useGameStore.getState().pendingRematchStart).toBeNull();
 
       // Subsequent sendFullState only sends game-state (no redundant rematch-start)
