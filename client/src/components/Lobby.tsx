@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState, type RefObject } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { useGameStore } from '../store/gameStore';
 import {
@@ -9,8 +9,23 @@ import {
   SAVED_GAME_STORAGE_KEY,
   type SavedGameSnapshot,
 } from '../store/savedGame';
+import {
+  buildInviteUrl,
+  parseInviteCode,
+  stripInviteParam,
+} from '../networking/inviteLink';
 import { Card } from './Card';
 import type { Card as CardType, GameState } from '../game/types';
+
+function formatJoinError(err: unknown): string {
+  if (err instanceof Error && err.message) {
+    if (/room not found or full/i.test(err.message)) {
+      return 'Room not found or already full. Check the code or ask your opponent for a new link.';
+    }
+    return err.message;
+  }
+  return 'Could not join the table. Check the code and try again.';
+}
 
 interface LobbyProps {
   peerActions: {
@@ -29,12 +44,21 @@ const FAN_CARDS: { card: CardType; rotate: number; y: number; x: number }[] = [
 ];
 
 export function Lobby({ peerActions }: LobbyProps) {
-  const [joinCode, setJoinCode] = useState('');
+  const [initialInviteCode] = useState<string | null>(() =>
+    parseInviteCode(window.location.search),
+  );
+  const [joinCode, setJoinCode] = useState(() => initialInviteCode ?? '');
   const [error, setError] = useState('');
   const [loadingAction, setLoadingAction] = useState<'create' | 'resume' | 'join' | null>(null);
-  const [copyStatus, setCopyStatus] = useState<'idle' | 'copied' | 'failed'>('idle');
+  const [copyCodeStatus, setCopyCodeStatus] = useState<'idle' | 'copied' | 'failed'>('idle');
+  const [copyLinkStatus, setCopyLinkStatus] = useState<'idle' | 'copied' | 'failed'>('idle');
   const [savedGame, setSavedGame] = useState<SavedGameSnapshot | null>(() => loadSavedGame());
   const prefersReducedMotion = useReducedMotion();
+
+  const copyCodeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const copyLinkTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const copyFeedbackGenRef = useRef(0);
+  const autoJoinAttemptedRef = useRef(false);
 
   const { hostGame, resumeGame, joinGame, cancelConnection } = peerActions;
   const connectionStatus = useGameStore((s) => s.connectionStatus);
@@ -52,6 +76,76 @@ export function Lobby({ peerActions }: LobbyProps) {
     window.addEventListener('storage', handleStorage);
     return () => window.removeEventListener('storage', handleStorage);
   }, []);
+
+  useEffect(() => {
+    const genRef = copyFeedbackGenRef;
+    return () => {
+      genRef.current++;
+      if (copyCodeTimerRef.current) clearTimeout(copyCodeTimerRef.current);
+      if (copyLinkTimerRef.current) clearTimeout(copyLinkTimerRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!initialInviteCode || autoJoinAttemptedRef.current) return;
+
+    // Defer by a tick so React StrictMode's simulated unmount/remount (and
+    // App's usePeer effect setup) completes before we initiate signaling.
+    const timer = setTimeout(() => {
+      if (autoJoinAttemptedRef.current) return;
+      autoJoinAttemptedRef.current = true;
+
+      const cleanUrl = stripInviteParam(window.location);
+      window.history.replaceState(window.history.state, '', cleanUrl);
+
+      if (useGameStore.getState().connectionStatus !== 'disconnected') return;
+
+      setLoadingAction('join');
+      setError('');
+      void joinGame(initialInviteCode)
+        .catch((e: unknown) => {
+          setError(formatJoinError(e));
+        })
+        .finally(() => {
+          setLoadingAction(null);
+        });
+    }, 0);
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [initialInviteCode, joinGame]);
+
+  const scheduleStatusReset = (
+    timerRef: RefObject<ReturnType<typeof setTimeout> | null>,
+    setStatus: (status: 'idle' | 'copied' | 'failed') => void,
+    delayMs: number,
+  ) => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => {
+      timerRef.current = null;
+      setStatus('idle');
+    }, delayMs);
+  };
+
+  const resetCopyFeedback = () => {
+    copyFeedbackGenRef.current++;
+    if (copyCodeTimerRef.current) {
+      clearTimeout(copyCodeTimerRef.current);
+      copyCodeTimerRef.current = null;
+    }
+    if (copyLinkTimerRef.current) {
+      clearTimeout(copyLinkTimerRef.current);
+      copyLinkTimerRef.current = null;
+    }
+    setCopyCodeStatus('idle');
+    setCopyLinkStatus('idle');
+  };
+
+  const handleCancelConnection = () => {
+    resetCopyFeedback();
+    cancelConnection();
+  };
 
   const handleCreate = async () => {
     setLoadingAction('create');
@@ -91,20 +185,38 @@ export function Lobby({ peerActions }: LobbyProps) {
     try {
       await joinGame(joinCode.toUpperCase());
     } catch (e) {
-      setError((e as Error).message);
+      setError(formatJoinError(e));
     }
     setLoadingAction(null);
   };
 
   const handleCopyCode = async () => {
     if (!roomCode) return;
+    const gen = copyFeedbackGenRef.current;
     try {
       await navigator.clipboard.writeText(roomCode);
-      setCopyStatus('copied');
-      setTimeout(() => setCopyStatus('idle'), 2000);
+      if (copyFeedbackGenRef.current !== gen) return;
+      setCopyCodeStatus('copied');
+      scheduleStatusReset(copyCodeTimerRef, setCopyCodeStatus, 2000);
     } catch {
-      setCopyStatus('failed');
-      setTimeout(() => setCopyStatus('idle'), 3000);
+      if (copyFeedbackGenRef.current !== gen) return;
+      setCopyCodeStatus('failed');
+      scheduleStatusReset(copyCodeTimerRef, setCopyCodeStatus, 3000);
+    }
+  };
+
+  const handleCopyLink = async () => {
+    if (!roomCode) return;
+    const gen = copyFeedbackGenRef.current;
+    try {
+      await navigator.clipboard.writeText(buildInviteUrl(roomCode));
+      if (copyFeedbackGenRef.current !== gen) return;
+      setCopyLinkStatus('copied');
+      scheduleStatusReset(copyLinkTimerRef, setCopyLinkStatus, 2000);
+    } catch {
+      if (copyFeedbackGenRef.current !== gen) return;
+      setCopyLinkStatus('failed');
+      scheduleStatusReset(copyLinkTimerRef, setCopyLinkStatus, 3000);
     }
   };
 
@@ -128,27 +240,43 @@ export function Lobby({ peerActions }: LobbyProps) {
             </p>
             <p className="text-sm text-[#a4bba9] mb-5">
               {pendingResumeState && resumingRound !== null
-                ? `Resuming Round ${resumingRound} (${pendingResumeState.gameScore[0]}–${pendingResumeState.gameScore[1]}). Send them this 4-character code to continue.`
-                : 'Send them this 4-character code to deal the first hand.'}
+                ? `Resuming Round ${resumingRound} (${pendingResumeState.gameScore[0]}–${pendingResumeState.gameScore[1]}). Share this code or invite link to continue.`
+                : 'Share this code or invite link to deal the first hand.'}
             </p>
 
-            <div className="tapis-ring rounded-xl px-5 py-4 mb-4 flex items-center justify-between gap-3">
+            <div className="tapis-ring rounded-xl px-5 py-4 mb-3 flex items-center justify-center">
               <div
                 data-testid="room-code"
-                className="font-display text-3xl sm:text-4xl font-bold tracking-[0.22em] text-[#e3ba62] tabular-nums pl-2"
+                className="font-display text-3xl sm:text-4xl font-bold tracking-[0.22em] text-[#e3ba62] tabular-nums pl-[0.22em]"
               >
                 {roomCode}
               </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2.5 mb-4">
               <button
                 type="button"
+                data-testid="copy-code"
                 onClick={handleCopyCode}
-                className="btn-slate rounded-lg px-3.5 py-2 text-xs font-semibold shrink-0 cursor-pointer"
+                className="btn-slate rounded-lg px-3.5 py-2.5 text-xs sm:text-sm font-semibold cursor-pointer"
               >
-                {copyStatus === 'copied'
-                  ? 'Copied'
-                  : copyStatus === 'failed'
-                    ? 'Copy manually'
+                {copyCodeStatus === 'copied'
+                  ? 'Code copied'
+                  : copyCodeStatus === 'failed'
+                    ? 'Copy failed'
                     : 'Copy code'}
+              </button>
+              <button
+                type="button"
+                data-testid="copy-link"
+                onClick={handleCopyLink}
+                className="btn-slate rounded-lg border-[#d4a84b]/45 px-3.5 py-2.5 text-xs sm:text-sm font-semibold text-[#e3ba62] cursor-pointer"
+              >
+                {copyLinkStatus === 'copied'
+                  ? 'Link copied'
+                  : copyLinkStatus === 'failed'
+                    ? 'Copy failed'
+                    : 'Copy link'}
               </button>
             </div>
 
@@ -164,7 +292,7 @@ export function Lobby({ peerActions }: LobbyProps) {
             <div className="pt-2">
               <button
                 type="button"
-                onClick={cancelConnection}
+                onClick={handleCancelConnection}
                 className="text-sm text-[#a4bba9] hover:text-[#efe9dc] underline underline-offset-4 cursor-pointer transition-colors"
               >
                 Leave table
