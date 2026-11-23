@@ -2,10 +2,13 @@ import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
   testDir: './e2e',
+  fullyParallel: true,
+  workers: process.env.CI ? 3 : undefined,
   timeout: 60_000,
   retries: 0,
   use: {
     baseURL: 'http://localhost:5173',
+    reducedMotion: 'reduce',
   },
   projects: [
     {

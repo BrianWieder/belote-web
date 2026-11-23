@@ -37,33 +37,57 @@ async function completeP2PBidding(hostPage: Page, guestPage: Page) {
 
 async function playFullP2PRound(hostPage: Page, guestPage: Page) {
   const deadline = Date.now() + 30_000;
-  while (Date.now() < deadline) {
-    const hostEnded =
-      (await hostPage.getByTestId('round-summary').isVisible().catch(() => false)) ||
-      (await hostPage.getByTestId('game-over').isVisible().catch(() => false));
-    const guestEnded =
-      (await guestPage.getByTestId('round-summary').isVisible().catch(() => false)) ||
-      (await guestPage.getByTestId('game-over').isVisible().catch(() => false));
+  const endSelector = '[data-testid="round-summary"], [data-testid="game-over"]';
 
+  while (Date.now() < deadline) {
+    const [hostPlayableId, guestPlayableId] = await Promise.all([
+      hostPage.evaluate(
+        () =>
+          document
+            .querySelector('button[data-playable]:not(:disabled)')
+            ?.getAttribute('data-testid') ?? null,
+      ),
+      guestPage.evaluate(
+        () =>
+          document
+            .querySelector('button[data-playable]:not(:disabled)')
+            ?.getAttribute('data-testid') ?? null,
+      ),
+    ]);
+
+    if (hostPlayableId) {
+      await hostPage
+        .locator(`button[data-playable][data-testid="${hostPlayableId}"]`)
+        .click()
+        .catch(() => {});
+      await hostPage
+        .locator(`button[data-playable][data-testid="${hostPlayableId}"]`)
+        .waitFor({ state: 'detached', timeout: 5_000 })
+        .catch(() => {});
+      continue;
+    }
+
+    if (guestPlayableId) {
+      await guestPage
+        .locator(`button[data-playable][data-testid="${guestPlayableId}"]`)
+        .click()
+        .catch(() => {});
+      await guestPage
+        .locator(`button[data-playable][data-testid="${guestPlayableId}"]`)
+        .waitFor({ state: 'detached', timeout: 5_000 })
+        .catch(() => {});
+      continue;
+    }
+
+    const [hostEnded, guestEnded] = await Promise.all([
+      hostPage.locator(endSelector).first().isVisible().catch(() => false),
+      guestPage.locator(endSelector).first().isVisible().catch(() => false),
+    ]);
     if (hostEnded && guestEnded) {
       return;
     }
 
-    const hostCard = hostPage.locator('button[data-playable]:not(:disabled)').first();
-    if (await hostCard.isVisible().catch(() => false)) {
-      await hostCard.click().catch(() => {});
-      await hostPage.waitForTimeout(60);
-      continue;
-    }
-
-    const guestCard = guestPage.locator('button[data-playable]:not(:disabled)').first();
-    if (await guestCard.isVisible().catch(() => false)) {
-      await guestCard.click().catch(() => {});
-      await guestPage.waitForTimeout(60);
-      continue;
-    }
-
-    await hostPage.waitForTimeout(60);
+    await hostPage.waitForTimeout(25);
   }
 
   throw new Error('P2P round did not finish within timeout');
@@ -176,8 +200,8 @@ test.describe('P2P recent features (invite links, names, reactions, ready check,
 
   test('live P2P rematch after completing a 500-point match', async () => {
     test.setTimeout(90_000);
-
-    await hostPage.goto('/?seed=rematch-e2e-500');
+    // rematch-fast-202 reaches 500+ in 3 rounds when taking round 1 and playing the first playable card.
+    await hostPage.goto('/?seed=rematch-fast-202');
     await hostPage.getByTestId('table-rules-toggle').click();
     await hostPage.getByTestId('target-score-500').click();
     await hostPage.getByTestId('create-room').click();
