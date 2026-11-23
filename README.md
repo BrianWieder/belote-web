@@ -16,9 +16,10 @@ belote/
 │   └── e2e/             # Playwright E2E tests
 ├── server/          # Signaling server (Express + Socket.io)
 │   └── src/
-│       ├── index.ts     # HTTP server entry point
-│       ├── signaling.ts # Socket.io event handlers
-│       └── rooms.ts     # Room management
+│       ├── index.ts      # HTTP server entry point (/health, /ice-servers)
+│       ├── signaling.ts  # Socket.io event handlers
+│       ├── rooms.ts      # Room management
+│       └── iceServers.ts # STUN/TURN ICE server configuration
 └── package.json     # npm workspaces root
 ```
 
@@ -58,14 +59,39 @@ Belote Maniee is a two-player French trick-taking card game using a 32-card deck
 - **Belote**: Playing both King and Queen of trump (belote/rebelote) scores 20 bonus points, provided both are visible (in hand or face-up on the tableau) when the first is played and you win at least one trick
 - **Dedans**: If the taker's total points (including bonuses) are less than or equal to the opponent's, the opponent receives all 162 points (including the 10-point last-trick bonus); only Belote/Rebelote (20 points) stays with the player who declared it
 
+## Environment Variables
+
+### Server (`server/`)
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PORT` | `3001` | Signaling server listen port |
+| `CLIENT_URL` | `http://localhost:5173` | Allowed CORS origin(s); supports comma-separated origins (e.g. `https://a.com,https://b.com`) |
+| `METERED_DOMAIN` | -- | Metered TURN domain (e.g. `myapp.metered.live`) for retrieving TURN credentials via `GET /ice-servers` |
+| `METERED_APP_NAME` | -- | Alternative to `METERED_DOMAIN` (bare app name expanded to `<name>.metered.live`) |
+| `METERED_API_KEY` | -- | Credential-scoped Metered API key paired with `METERED_DOMAIN` or `METERED_APP_NAME` (credential expiry/rotation is configured separately in Metered) |
+| `TURN_USERNAME` | -- | Static Metered TURN username (fallback when Metered API vars are not configured) |
+| `TURN_CREDENTIAL` | -- | Static Metered TURN credential paired with `TURN_USERNAME` |
+
+### Client (`client/`)
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `VITE_SERVER_URL` | `http://localhost:3001` | Signaling server URL (used for Socket.io and `GET /ice-servers`) |
+
+> Legacy `VITE_TURN_USERNAME` and `VITE_TURN_CREDENTIAL` client env vars remain supported as a backwards-compatible fallback if the server only returns STUN servers, but TURN credentials should be configured on the server instead.
+
 ## Testing
 
 ```bash
-# Unit tests (game engine)
-cd client && npx vitest
+# Client unit tests (game engine & networking)
+(cd client && npx vitest run)
+
+# Server unit tests
+(cd server && npm test)
 
 # E2E tests (full two-player game via Playwright)
-cd client && npx playwright test
+(cd client && npx playwright test)
 ```
 
 ## Tech Stack
