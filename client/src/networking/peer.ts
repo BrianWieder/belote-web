@@ -7,6 +7,9 @@ export type PeerMessage =
   | { type: 'resume-game'; state: GameState }
   | { type: 'game-action'; action: GameAction; seq: number }
   | { type: 'new-round'; seq?: number }
+  | { type: 'round-ready'; round: number }
+  | { type: 'rematch-ready' }
+  | { type: 'rematch-start'; seed: string; dealer: 0 | 1 }
   | { type: 'resync-request' }
   | { type: 'game-state'; state: GameState };
 
@@ -434,6 +437,16 @@ export function isPeerMessage(value: unknown): value is PeerMessage {
       return isValidGameAction(msg.action) && isNonNegativeInt(msg.seq);
     case 'new-round':
       return msg.seq === undefined || isNonNegativeInt(msg.seq);
+    case 'round-ready':
+      return isNonNegativeInt(msg.round) && msg.round >= 1;
+    case 'rematch-ready':
+      return true;
+    case 'rematch-start':
+      return (
+        typeof msg.seed === 'string' &&
+        msg.seed.length > 0 &&
+        (msg.dealer === 0 || msg.dealer === 1)
+      );
     case 'resync-request':
       return true;
     case 'game-state':

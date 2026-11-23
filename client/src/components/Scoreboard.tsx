@@ -223,7 +223,7 @@ interface DialogDisconnectProps {
 }
 
 export function RoundSummary({ reconnecting, disconnected, matchSaved, onReturnToLobby }: DialogDisconnectProps) {
-  const { gameState, localPlayer, nextRound } = useGame();
+  const { gameState, localPlayer, roundReady, nextRound } = useGame();
   const dialogRef = useRef<HTMLDivElement>(null);
 
   const lastScore =
@@ -238,6 +238,8 @@ export function RoundSummary({ reconnecting, disconnected, matchSaved, onReturnT
 
   const opponent: PlayerID = localPlayer === 0 ? 1 : 0;
   const red = isRedSuit(lastScore.trumpSuit);
+  const localReady = roundReady[localPlayer];
+  const opponentReady = roundReady[opponent];
 
   return (
     <div
@@ -381,14 +383,37 @@ export function RoundSummary({ reconnecting, disconnected, matchSaved, onReturnT
             </button>
           </div>
         ) : (
-          <button
-            type="button"
-            data-testid="next-round"
-            onClick={nextRound}
-            className="btn-brass w-full font-semibold py-3 rounded-xl cursor-pointer"
-          >
-            Deal next round
-          </button>
+          <div className="space-y-2.5">
+            {opponentReady && !localReady && (
+              <div
+                data-testid="opponent-round-ready"
+                role="status"
+                className="flex items-center justify-center gap-2 rounded-xl bg-[#d4a84b]/12 border border-[#d4a84b]/35 px-3 py-1.5 text-xs font-medium text-[#e3ba62]"
+              >
+                <span className="h-2 w-2 rounded-full bg-[#e3ba62]" aria-hidden="true" />
+                Opponent is ready
+              </div>
+            )}
+            <button
+              type="button"
+              data-testid="next-round"
+              disabled={localReady}
+              onClick={nextRound}
+              className="btn-brass w-full font-semibold py-3 rounded-xl cursor-pointer inline-flex items-center justify-center gap-2"
+            >
+              {localReady && (
+                <span
+                  className="h-2 w-2 rounded-full bg-current animate-pulse"
+                  aria-hidden="true"
+                />
+              )}
+              {localReady
+                ? 'Waiting for opponent…'
+                : opponentReady
+                  ? 'Deal next round'
+                  : 'Ready for next round'}
+            </button>
+          </div>
         )}
       </div>
     </div>
@@ -396,7 +421,7 @@ export function RoundSummary({ reconnecting, disconnected, matchSaved, onReturnT
 }
 
 export function GameOver({ reconnecting, disconnected, onReturnToLobby }: DialogDisconnectProps) {
-  const { gameState, localPlayer } = useGame();
+  const { gameState, localPlayer, rematchReady, requestRematch } = useGame();
   const dialogRef = useRef<HTMLDivElement>(null);
   const isOpen = Boolean(gameState && gameState.phase === 'game-over');
 
@@ -409,9 +434,12 @@ export function GameOver({ reconnecting, disconnected, onReturnToLobby }: Dialog
   const oppScore = gameState.gameScore[opponent];
   const isDraw = myScore === oppScore;
   const won = myScore > oppScore;
+  const localReady = rematchReady[localPlayer];
+  const opponentReady = rematchReady[opponent];
 
   return (
     <div
+      data-testid="game-over"
       role="dialog"
       aria-modal="true"
       aria-labelledby="game-over-heading"
@@ -482,13 +510,45 @@ export function GameOver({ reconnecting, disconnected, onReturnToLobby }: Dialog
             </button>
           </div>
         ) : (
-          <button
-            type="button"
-            onClick={() => window.location.reload()}
-            className="btn-brass w-full font-semibold py-3.5 px-8 rounded-xl cursor-pointer"
-          >
-            Start a new match
-          </button>
+          <div className="space-y-2.5">
+            {opponentReady && !localReady && (
+              <div
+                data-testid="opponent-rematch-ready"
+                role="status"
+                className="flex items-center justify-center gap-2 rounded-xl bg-[#d4a84b]/12 border border-[#d4a84b]/35 px-3 py-1.5 text-xs font-medium text-[#e3ba62]"
+              >
+                <span className="h-2 w-2 rounded-full bg-[#e3ba62]" aria-hidden="true" />
+                Opponent wants a rematch
+              </div>
+            )}
+            <button
+              type="button"
+              data-testid="play-rematch"
+              disabled={localReady}
+              onClick={requestRematch}
+              className="btn-brass w-full font-semibold py-3.5 px-8 rounded-xl cursor-pointer inline-flex items-center justify-center gap-2"
+            >
+              {localReady && (
+                <span
+                  className="h-2 w-2 rounded-full bg-current animate-pulse"
+                  aria-hidden="true"
+                />
+              )}
+              {localReady
+                ? 'Waiting for opponent…'
+                : opponentReady
+                  ? 'Accept rematch'
+                  : 'Play rematch'}
+            </button>
+            <button
+              type="button"
+              data-testid="return-to-lobby"
+              onClick={onReturnToLobby ?? (() => window.location.reload())}
+              className="btn-slate w-full font-semibold py-3 px-6 rounded-xl cursor-pointer text-sm"
+            >
+              Return to lobby
+            </button>
+          </div>
         )}
       </div>
     </div>

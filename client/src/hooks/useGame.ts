@@ -26,8 +26,11 @@ export function useGame() {
   const gameState = useGameStore((s) => s.gameState);
   const connectionStatus = useGameStore((s) => s.connectionStatus);
   const localPlayer = useGameStore((s) => s.localPlayer);
+  const roundReady = useGameStore((s) => s.roundReady);
+  const rematchReady = useGameStore((s) => s.rematchReady);
   const performAction = useGameStore((s) => s.performAction);
   const nextRound = useGameStore((s) => s.nextRound);
+  const requestRematch = useGameStore((s) => s.requestRematch);
   const isMyTurnFn = useGameStore((s) => s.isMyTurn);
 
   const isConnected = connectionStatus === 'connected';
@@ -57,12 +60,15 @@ export function useGame() {
   return {
     gameState,
     localPlayer,
+    roundReady,
+    rematchReady,
     isConnected,
     playCard,
     bidTake,
     bidPass,
     bidChoose,
     nextRound,
+    requestRematch,
     isMyTurn,
     get playableCards(): Card[] {
       return getCachedPlayableCards(gameState);

@@ -6,20 +6,65 @@ vi.mock('../../networking/peer', () => ({
 
 import { useGameStore } from '../gameStore';
 import { sendPeerMessage } from '../../networking/peer';
-import type { GameState } from '../../game/types';
+import { createInitialState } from '../../game/engine';
+import type { GameState, PlayerID, RoundScore } from '../../game/types';
 import type { Mock } from 'vitest';
 
 const mockedSend = sendPeerMessage as Mock;
+
+function makeRoundScore(): RoundScore {
+  return {
+    trickPoints: [100, 52],
+    beloteBonus: [0, 0],
+    lastTrickBonus: [10, 0],
+    dedans: false,
+    taker: 0,
+    trumpSuit: 'hearts',
+    finalPoints: [110, 52],
+  };
+}
+
+function makeRoundOverState(
+  seed = 'round-test',
+  dealer: PlayerID = 0,
+  roundsPlayed = 1,
+  sequenceNumber = 33,
+): GameState {
+  const state = createInitialState(seed, dealer);
+  state.phase = 'round-over';
+  state.sequenceNumber = sequenceNumber;
+  state.roundScores = Array.from({ length: roundsPlayed }, () => makeRoundScore());
+  state.gameScore = [110 * roundsPlayed, 52 * roundsPlayed];
+  return state;
+}
+
+function makeGameOverState(
+  seed = 'match-test',
+  dealer: PlayerID = 0,
+  sequenceNumber = 65,
+): GameState {
+  const state = createInitialState(seed, dealer);
+  state.phase = 'game-over';
+  state.sequenceNumber = sequenceNumber;
+  state.roundScores = [makeRoundScore()];
+  state.gameScore = [1050, 720];
+  return state;
+}
 
 describe('gameStore', () => {
   beforeEach(() => {
     useGameStore.setState({
       gameState: null,
+      pendingResumeState: null,
+      hostGameSaved: false,
       connectionStatus: 'connected',
       connectionError: null,
       roomCode: null,
       isHost: false,
       localPlayer: 0,
+      roundReady: [false, false],
+      rematchReady: [false, false],
+      pendingRematchStart: null,
     });
     mockedSend.mockReset();
     mockedSend.mockReturnValue(true);
@@ -203,23 +248,39 @@ describe('gameStore', () => {
     expect(mockedSend).toHaveBeenCalledTimes(1);
   });
 
-  it('nextRound bumps sequenceNumber, broadcasts seq, and blocks when disconnected', () => {
-    useGameStore.getState().initGame('round-test', 0);
-    const roundOver = structuredClone(useGameStore.getState().gameState!);
-    roundOver.phase = 'round-over';
-    roundOver.sequenceNumber = 33;
-    useGameStore.setState({ gameState: roundOver, connectionStatus: 'disconnected' });
+  it('nextRound requires mutual ready, bumps sequenceNumber on deal, and blocks when disconnected', () => {
+    const roundOver = makeRoundOverState('round-test', 0, 1, 33);
+    useGameStore.setState({
+      gameState: roundOver,
+      isHost: true,
+      localPlayer: 0,
+      connectionStatus: 'disconnected',
+    });
 
+    // Blocked when disconnected
     useGameStore.getState().nextRound();
     expect(useGameStore.getState().gameState!.phase).toBe('round-over');
     expect(useGameStore.getState().gameState!.sequenceNumber).toBe(33);
+    expect(useGameStore.getState().roundReady).toEqual([false, false]);
     expect(mockedSend).not.toHaveBeenCalled();
 
+    // Blocked if sendPeerMessage returns false
     useGameStore.setState({ connectionStatus: 'connected' });
+    mockedSend.mockReturnValueOnce(false);
     useGameStore.getState().nextRound();
+    expect(useGameStore.getState().roundReady).toEqual([false, false]);
+
+    // Connected: local ready sends round-ready and waits for opponent
+    useGameStore.getState().nextRound();
+    expect(useGameStore.getState().gameState!.phase).toBe('round-over');
+    expect(useGameStore.getState().roundReady).toEqual([true, false]);
+    expect(mockedSend).toHaveBeenLastCalledWith({ type: 'round-ready', round: 1 });
+
+    // Opponent ready advances round and bumps sequenceNumber to 34
+    useGameStore.getState().receiveRoundReady(1);
     expect(useGameStore.getState().gameState!.phase).toBe('bidding-round1');
     expect(useGameStore.getState().gameState!.sequenceNumber).toBe(34);
-    expect(mockedSend).toHaveBeenCalledWith({ type: 'new-round', seq: 34 });
+    expect(useGameStore.getState().roundReady).toEqual([false, false]);
   });
 
   it('receiveNextRound advances on matching or omitted seq and requests resync on mismatch', () => {
@@ -299,5 +360,325 @@ describe('gameStore', () => {
     useGameStore.getState().receiveGameState(afterOver);
     expect(useGameStore.getState().gameState!.phase).toBe('game-over');
     expect(useGameStore.getState().gameState!.sequenceNumber).toBe(35);
+  });
+
+  describe('mutual round-over ready check', () => {
+    it('waits for opponent when only local player clicks ready, then deals when opponent readies', () => {
+      const roundOver = makeRoundOverState('round-sync', 0, 1, 33);
+      useGameStore.setState({ gameState: roundOver, isHost: true, localPlayer: 0 });
+
+      useGameStore.getState().nextRound();
+
+      expect(useGameStore.getState().gameState!.phase).toBe('round-over');
+      expect(useGameStore.getState().roundReady).toEqual([true, false]);
+      expect(mockedSend).toHaveBeenCalledTimes(1);
+      expect(mockedSend).toHaveBeenCalledWith({ type: 'round-ready', round: 1 });
+
+      // Clicking again while already ready is a no-op
+      useGameStore.getState().markRoundReady();
+      expect(mockedSend).toHaveBeenCalledTimes(1);
+
+      // Opponent sends round-ready for round 1 -> next round deals immediately
+      useGameStore.getState().receiveRoundReady(1);
+
+      const { gameState, roundReady } = useGameStore.getState();
+      expect(gameState!.phase).toBe('bidding-round1');
+      expect(gameState!.dealer).toBe(1);
+      expect(gameState!.roundScores).toHaveLength(1);
+      expect(gameState!.sequenceNumber).toBe(34);
+      expect(roundReady).toEqual([false, false]);
+    });
+
+    it('marks opponent ready first and deals immediately when local player clicks ready second', () => {
+      const roundOver = makeRoundOverState('round-sync-2', 1, 2, 66);
+      useGameStore.setState({ gameState: roundOver, isHost: false, localPlayer: 1 });
+
+      useGameStore.getState().receiveRoundReady(2);
+      expect(useGameStore.getState().gameState!.phase).toBe('round-over');
+      expect(useGameStore.getState().roundReady).toEqual([true, false]);
+      expect(mockedSend).not.toHaveBeenCalled();
+
+      useGameStore.getState().nextRound();
+
+      const { gameState, roundReady } = useGameStore.getState();
+      expect(gameState!.phase).toBe('bidding-round1');
+      expect(gameState!.dealer).toBe(0);
+      expect(gameState!.sequenceNumber).toBe(67);
+      expect(roundReady).toEqual([false, false]);
+      expect(mockedSend).toHaveBeenCalledWith({ type: 'round-ready', round: 2 });
+    });
+
+    it('ignores stale round-ready messages for mismatched rounds or non-round-over phases', () => {
+      const roundOver = makeRoundOverState('round-stale', 0, 2, 66);
+      useGameStore.setState({ gameState: roundOver, isHost: true, localPlayer: 0 });
+
+      useGameStore.getState().receiveRoundReady(1);
+      useGameStore.getState().receiveRoundReady(3);
+      expect(useGameStore.getState().roundReady).toEqual([false, false]);
+
+      useGameStore.getState().initGame('playing-phase', 0);
+      useGameStore.getState().receiveRoundReady(0);
+      expect(useGameStore.getState().roundReady).toEqual([false, false]);
+    });
+
+    it('does not revert an already-advanced round on a stale round-over snapshot and reconciles readiness on resync', () => {
+      const roundOver = makeRoundOverState('round-resync-guard', 0, 1, 33);
+      useGameStore.setState({ gameState: structuredClone(roundOver), isHost: true, localPlayer: 0 });
+
+      // Both players ready -> host advances to round 2 (bidding-round1, seq 34, roundScores.length still 1)
+      useGameStore.getState().nextRound();
+      useGameStore.getState().receiveRoundReady(1);
+      expect(useGameStore.getState().gameState!.phase).toBe('bidding-round1');
+      expect(useGameStore.getState().gameState!.sequenceNumber).toBe(34);
+      expect(useGameStore.getState().gameState!.roundScores).toHaveLength(1);
+      mockedSend.mockClear();
+
+      // Stale round-over snapshot (seq 33, same roundScores.length) must NOT revert host to round-over
+      useGameStore.getState().receiveGameState(structuredClone(roundOver));
+      expect(useGameStore.getState().gameState!.phase).toBe('bidding-round1');
+      expect(useGameStore.getState().gameState!.sequenceNumber).toBe(34);
+      // Host pushes back its newer state so the lagging peer catches up
+      expect(mockedSend).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'game-state',
+          state: expect.objectContaining({ phase: 'bidding-round1', sequenceNumber: 34 }),
+        }),
+      );
+
+      // Even a synthetic same-seq round-over snapshot cannot revert an active round
+      const sameSeqStale = structuredClone(roundOver);
+      sameSeqStale.sequenceNumber = 34;
+      useGameStore.getState().receiveGameState(sameSeqStale);
+      expect(useGameStore.getState().gameState!.phase).toBe('bidding-round1');
+
+      // During same-round round-over resync, sendFullState and receiveGameState re-advertise local readiness
+      useGameStore.setState({
+        gameState: structuredClone(roundOver),
+        roundReady: [true, false],
+        localPlayer: 0,
+      });
+      mockedSend.mockClear();
+      useGameStore.getState().sendFullState();
+      expect(mockedSend).toHaveBeenNthCalledWith(1, { type: 'game-state', state: roundOver });
+      expect(mockedSend).toHaveBeenNthCalledWith(2, { type: 'round-ready', round: 1 });
+
+      mockedSend.mockClear();
+      useGameStore.getState().receiveGameState(structuredClone(roundOver));
+      expect(useGameStore.getState().roundReady).toEqual([true, false]);
+      expect(mockedSend).toHaveBeenCalledWith({ type: 'round-ready', round: 1 });
+
+      // Receiving an older snapshot while locally ready in round-over replies with full state + round-ready
+      const olderSnapshot = structuredClone(roundOver);
+      olderSnapshot.phase = 'playing';
+      olderSnapshot.sequenceNumber = 32;
+      mockedSend.mockClear();
+      useGameStore.getState().receiveGameState(olderSnapshot);
+      expect(mockedSend).toHaveBeenNthCalledWith(1, { type: 'game-state', state: roundOver });
+      expect(mockedSend).toHaveBeenNthCalledWith(2, { type: 'round-ready', round: 1 });
+    });
+  });
+
+  describe('live P2P rematch handshake', () => {
+    it('host requests rematch, waits for guest, then starts new match with alternated dealer', () => {
+      const gameOver = makeGameOverState('old-match-seed', 0, 120);
+      useGameStore.setState({ gameState: gameOver, isHost: true, localPlayer: 0 });
+
+      useGameStore.getState().requestRematch();
+      expect(useGameStore.getState().gameState!.phase).toBe('game-over');
+      expect(useGameStore.getState().rematchReady).toEqual([true, false]);
+      expect(mockedSend).toHaveBeenCalledTimes(1);
+      expect(mockedSend).toHaveBeenCalledWith({ type: 'rematch-ready' });
+
+      // Guest accepts -> host initializes fresh match with dealer 1 and sends rematch-start
+      useGameStore.getState().receiveRematchReady();
+
+      const { gameState, rematchReady, roundReady } = useGameStore.getState();
+      expect(gameState!.phase).toBe('bidding-round1');
+      expect(gameState!.seed).not.toBe('old-match-seed');
+      expect(gameState!.seed.length).toBeGreaterThan(0);
+      expect(gameState!.dealer).toBe(1);
+      expect(gameState!.gameScore).toEqual([0, 0]);
+      expect(gameState!.roundScores).toEqual([]);
+      expect(rematchReady).toEqual([false, false]);
+      expect(roundReady).toEqual([false, false]);
+
+      expect(mockedSend).toHaveBeenCalledTimes(2);
+      expect(mockedSend).toHaveBeenLastCalledWith({
+        type: 'rematch-start',
+        seed: gameState!.seed,
+        dealer: 1,
+      });
+    });
+
+    it('host starts rematch immediately when guest requested first and alternates dealer from 1 to 0', () => {
+      const gameOver = makeGameOverState('old-match-seed-2', 1, 120);
+      useGameStore.setState({ gameState: gameOver, isHost: true, localPlayer: 0 });
+
+      useGameStore.getState().receiveRematchReady();
+      expect(useGameStore.getState().gameState!.phase).toBe('game-over');
+      expect(useGameStore.getState().rematchReady).toEqual([false, true]);
+      expect(mockedSend).not.toHaveBeenCalled();
+
+      useGameStore.getState().requestRematch();
+
+      const { gameState, rematchReady } = useGameStore.getState();
+      expect(gameState!.phase).toBe('bidding-round1');
+      expect(gameState!.dealer).toBe(0);
+      expect(gameState!.seed).not.toBe('old-match-seed-2');
+      expect(rematchReady).toEqual([false, false]);
+
+      expect(mockedSend).toHaveBeenNthCalledWith(1, { type: 'rematch-ready' });
+      expect(mockedSend).toHaveBeenNthCalledWith(2, {
+        type: 'rematch-start',
+        seed: gameState!.seed,
+        dealer: 0,
+      });
+    });
+
+    it('guest waits for rematch-start even when both are ready, then initializes new game and resets flags', () => {
+      const gameOver = makeGameOverState('guest-old-seed', 0, 120);
+      useGameStore.setState({ gameState: gameOver, isHost: false, localPlayer: 1 });
+
+      // Guest ignores unilateral rematch-start before clicking rematch
+      useGameStore.getState().receiveRematchStart('unrequested-seed', 1);
+      expect(useGameStore.getState().gameState!.phase).toBe('game-over');
+
+      useGameStore.getState().receiveRematchReady();
+      expect(useGameStore.getState().rematchReady).toEqual([true, false]);
+
+      useGameStore.getState().requestRematch();
+      expect(useGameStore.getState().rematchReady).toEqual([true, true]);
+      expect(useGameStore.getState().gameState!.phase).toBe('game-over');
+      expect(mockedSend).toHaveBeenCalledTimes(1);
+      expect(mockedSend).toHaveBeenCalledWith({ type: 'rematch-ready' });
+
+      useGameStore.getState().receiveRematchStart('rematch-seed-xyz', 1);
+
+      const { gameState, rematchReady, roundReady } = useGameStore.getState();
+      expect(gameState!.phase).toBe('bidding-round1');
+      expect(gameState!.seed).toBe('rematch-seed-xyz');
+      expect(gameState!.dealer).toBe(1);
+      expect(gameState!.gameScore).toEqual([0, 0]);
+      expect(rematchReady).toEqual([false, false]);
+      expect(roundReady).toEqual([false, false]);
+    });
+
+    it('ignores rematch actions outside game-over, when disconnected, and host ignores rematch-start', () => {
+      useGameStore.getState().initGame('active-match', 0);
+      useGameStore.setState({ isHost: true, localPlayer: 0 });
+
+      useGameStore.getState().requestRematch();
+      useGameStore.getState().receiveRematchReady();
+      expect(useGameStore.getState().rematchReady).toEqual([false, false]);
+      expect(mockedSend).not.toHaveBeenCalled();
+
+      const gameOver = makeGameOverState('host-match', 0, 120);
+      useGameStore.setState({
+        gameState: gameOver,
+        isHost: true,
+        localPlayer: 0,
+        connectionStatus: 'disconnected',
+      });
+      useGameStore.getState().requestRematch();
+      expect(useGameStore.getState().rematchReady).toEqual([false, false]);
+      expect(mockedSend).not.toHaveBeenCalled();
+
+      useGameStore.setState({ connectionStatus: 'connected' });
+      useGameStore.getState().receiveRematchStart('spoofed-seed', 1);
+      expect(useGameStore.getState().gameState!.phase).toBe('game-over');
+      expect(useGameStore.getState().gameState!.seed).toBe('host-match');
+    });
+
+    it('resets rematchReady on initGame, hydrateGame, and resetConnection', () => {
+      const gameOver = makeGameOverState('reset-rematch', 0, 120);
+      useGameStore.setState({ gameState: gameOver, rematchReady: [true, false] });
+
+      useGameStore.getState().initGame('new-match', 0);
+      expect(useGameStore.getState().rematchReady).toEqual([false, false]);
+
+      useGameStore.setState({ rematchReady: [false, true] });
+      useGameStore.getState().hydrateGame(makeRoundOverState());
+      expect(useGameStore.getState().rematchReady).toEqual([false, false]);
+
+      useGameStore.setState({ rematchReady: [true, false] });
+      useGameStore.getState().resetConnection();
+      expect(useGameStore.getState().rematchReady).toEqual([false, false]);
+      expect(useGameStore.getState().pendingRematchStart).toBeNull();
+    });
+
+    it('replays rematch-start across reconnects/resyncs until the guest is confirmed on the new match', () => {
+      const oldGameOver = makeGameOverState('old-match-seed', 0, 120);
+      useGameStore.setState({
+        gameState: structuredClone(oldGameOver),
+        isHost: true,
+        localPlayer: 0,
+      });
+
+      // Both players ready -> host enters new match (dealer 1) and retains pendingRematchStart
+      useGameStore.getState().requestRematch();
+      useGameStore.getState().receiveRematchReady();
+
+      const newMatch = useGameStore.getState().gameState!;
+      expect(newMatch.seed).not.toBe('old-match-seed');
+      expect(newMatch.dealer).toBe(1);
+      expect(useGameStore.getState().pendingRematchStart).toEqual({
+        previousSeed: 'old-match-seed',
+        seed: newMatch.seed,
+        dealer: 1,
+      });
+
+      // Reconnect triggers sendFullState on host -> replays rematch-start BEFORE game-state
+      mockedSend.mockClear();
+      useGameStore.getState().sendFullState();
+      expect(mockedSend).toHaveBeenNthCalledWith(1, {
+        type: 'rematch-start',
+        seed: newMatch.seed,
+        dealer: 1,
+      });
+      expect(mockedSend).toHaveBeenNthCalledWith(2, {
+        type: 'game-state',
+        state: newMatch,
+      });
+
+      // If guest still sends rematch-ready or old-seed game-over snapshot, host replays rematch-start
+      // without letting the mismatched seed overwrite the new match
+      mockedSend.mockClear();
+      useGameStore.getState().receiveRematchReady();
+      expect(mockedSend).toHaveBeenNthCalledWith(1, {
+        type: 'rematch-start',
+        seed: newMatch.seed,
+        dealer: 1,
+      });
+
+      mockedSend.mockClear();
+      useGameStore.getState().receiveGameState(structuredClone(oldGameOver));
+      expect(useGameStore.getState().gameState!.seed).toBe(newMatch.seed);
+      expect(mockedSend).toHaveBeenNthCalledWith(1, {
+        type: 'rematch-start',
+        seed: newMatch.seed,
+        dealer: 1,
+      });
+
+      // Unrelated foreign seed is still strictly ignored
+      mockedSend.mockClear();
+      const unrelated = makeGameOverState('foreign-seed', 0, 120);
+      useGameStore.getState().receiveGameState(unrelated);
+      expect(mockedSend).not.toHaveBeenCalled();
+
+      // Once guest sends a valid action on the new match (or matching-seed state), pendingRematchStart clears
+      // (dealer is 1, so host acts first; after host acts, guest acts, or guest sends matching-seed state)
+      useGameStore.getState().performAction({ type: 'bid-pass' });
+      useGameStore.getState().receiveAction({ type: 'bid-take' }, 2);
+      expect(useGameStore.getState().pendingRematchStart).toBeNull();
+
+      // Subsequent sendFullState only sends game-state (no redundant rematch-start)
+      mockedSend.mockClear();
+      useGameStore.getState().sendFullState();
+      expect(mockedSend).toHaveBeenCalledTimes(1);
+      expect(mockedSend).toHaveBeenCalledWith({
+        type: 'game-state',
+        state: useGameStore.getState().gameState,
+      });
+    });
   });
 });

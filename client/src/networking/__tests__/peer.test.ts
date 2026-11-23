@@ -648,6 +648,13 @@ describe('native WebRTC peer wrapper', () => {
     // Valid complete messages pass validation and reach messageHandler
     const validState = createInitialState('peer-msg-test', 0);
     expect(isPeerMessage({ type: 'game-state', state: validState })).toBe(true);
+    expect(isPeerMessage({ type: 'round-ready', round: 1 })).toBe(true);
+    expect(isPeerMessage({ type: 'round-ready', round: 0 })).toBe(false);
+    expect(isPeerMessage({ type: 'round-ready', round: '1' })).toBe(false);
+    expect(isPeerMessage({ type: 'rematch-ready' })).toBe(true);
+    expect(isPeerMessage({ type: 'rematch-start', seed: 'abc', dealer: 1 })).toBe(true);
+    expect(isPeerMessage({ type: 'rematch-start', seed: '', dealer: 0 })).toBe(false);
+    expect(isPeerMessage({ type: 'rematch-start', seed: 'abc', dealer: 2 })).toBe(false);
     ch.simulateMessage(JSON.stringify({ type: 'game-state', state: validState }));
     ch.simulateMessage(JSON.stringify({ type: 'new-round', seq: 2 }));
     ch.simulateMessage(
