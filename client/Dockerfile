@@ -15,6 +15,9 @@ ENV VITE_TURN_USERNAME=$VITE_TURN_USERNAME
 ARG VITE_TURN_CREDENTIAL
 ENV VITE_TURN_CREDENTIAL=$VITE_TURN_CREDENTIAL
 
+ARG VITE_SENTRY_DSN
+ENV VITE_SENTRY_DSN=$VITE_SENTRY_DSN
+
 # Create and change to the app directory.
 WORKDIR /app
 
@@ -24,8 +27,8 @@ COPY ./ ./
 # Install packages
 RUN npm ci
 
-# Build the app.
-RUN npm run build --workspace=client
+# Build the app and strip any leftover source maps if SENTRY_AUTH_TOKEN was unset
+RUN npm run build --workspace=client && find client/dist -name '*.map' -delete
 
 # Use the Caddy image
 FROM caddy

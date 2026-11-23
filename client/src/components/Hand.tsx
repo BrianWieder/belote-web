@@ -1,4 +1,4 @@
-import { useGame } from '../hooks/useGame';
+import { useGame, usePlayableCards } from '../hooks/useGame';
 import { Card } from './Card';
 import type { Card as CardType, Rank, Suit } from '../game/types';
 import { cardToString } from '../game/types';
@@ -13,9 +13,9 @@ export function Hand() {
     localPlayer,
     isConnected,
     playCard,
-    playableCards,
     isMyTurn,
   } = useGame();
+  const playableCards = usePlayableCards();
   if (!gameState) return null;
 
   const hand = gameState.hands[localPlayer];

@@ -37,7 +37,10 @@ export function Lobby({ peerActions }: LobbyProps) {
   const prefersReducedMotion = useReducedMotion();
 
   const { hostGame, resumeGame, joinGame, cancelConnection } = peerActions;
-  const { connectionStatus, roomCode, connectionError, pendingResumeState } = useGameStore();
+  const connectionStatus = useGameStore((s) => s.connectionStatus);
+  const roomCode = useGameStore((s) => s.roomCode);
+  const connectionError = useGameStore((s) => s.connectionError);
+  const pendingResumeState = useGameStore((s) => s.pendingResumeState);
   const loading = loadingAction !== null;
 
   useEffect(() => {
