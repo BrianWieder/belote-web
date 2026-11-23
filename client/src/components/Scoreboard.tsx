@@ -331,13 +331,13 @@ export function RoundSummary({ reconnecting, disconnected, matchSaved, onReturnT
           </span>
         </div>
 
-        {lastScore.capot && (
+        {lastScore.capot && capotWinner !== null && (
           <div
             data-testid="capot-badge"
             className="mb-4 rounded-xl bg-[#d4a84b]/15 border border-[#d4a84b]/55 px-3.5 py-2.5 text-xs sm:text-sm text-[#f4dd9d] text-center"
           >
             <strong className="font-display text-[#e3ba62]">Capot!</strong>{' '}
-            {capotWinnerName} won all 16 tricks for 252 points
+            {capotWinnerName} won all 16 tricks for {lastScore.finalPoints[capotWinner]} points
             {lastScore.dedans ? ' (dedans).' : '.'}
           </div>
         )}

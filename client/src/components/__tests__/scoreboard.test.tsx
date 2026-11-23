@@ -17,7 +17,7 @@ vi.mock('../../store/gameStore', async (importOriginal) => {
 });
 
 import { useGameStore } from '../../store/gameStore';
-import { GameOver } from '../Scoreboard';
+import { GameOver, RoundSummary } from '../Scoreboard';
 import { BiddingUI } from '../BiddingUI';
 import { Hand } from '../Hand';
 import { Tableau } from '../Tableau';
@@ -67,6 +67,39 @@ describe('GameOver draw and winner display', () => {
     const html = renderToStaticMarkup(<GameOver />);
     expect(html).toContain('Opponent Wins');
     expect(html).not.toContain('You Win!');
+  });
+
+  it('announces 272 points in RoundSummary Capot banner when winner also declared Belote', () => {
+    const state = createInitialState('capot-belote-test', 0, {
+      targetScore: 1000,
+      capotEnabled: true,
+    });
+    state.phase = 'round-over';
+    state.roundScores = [
+      {
+        trickPoints: [152, 0],
+        beloteBonus: [20, 0],
+        lastTrickBonus: [0, 0],
+        dedans: false,
+        capot: true,
+        taker: 0,
+        trumpSuit: 'hearts',
+        finalPoints: [272, 0],
+      },
+    ];
+    state.gameScore = [272, 0];
+    useGameStore.setState({ gameState: state, localPlayer: 0 });
+
+    const withBeloteHtml = renderToStaticMarkup(<RoundSummary />);
+    expect(withBeloteHtml).toContain('won all 16 tricks for 272 points');
+
+    state.roundScores[0].beloteBonus = [0, 0];
+    state.roundScores[0].finalPoints = [252, 0];
+    state.gameScore = [252, 0];
+    useGameStore.setState({ gameState: structuredClone(state), localPlayer: 0 });
+
+    const withoutBeloteHtml = renderToStaticMarkup(<RoundSummary />);
+    expect(withoutBeloteHtml).toContain('won all 16 tricks for 252 points');
   });
 });
 
