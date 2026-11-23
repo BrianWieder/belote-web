@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { useGame } from '../hooks/useGame';
 import { Card, SuitIcon } from './Card';
@@ -7,22 +8,60 @@ import type { PlayerID } from '../game/types';
 export function PlayArea() {
   const { gameState, localPlayer } = useGame();
   const prefersReducedMotion = useReducedMotion();
+  const [peekTrickCount, setPeekTrickCount] = useState<number | null>(null);
+  const peekContainerRef = useRef<HTMLDivElement>(null);
+
+  const isPlaying = Boolean(gameState && gameState.phase === 'playing');
+  const trickCount = gameState?.tricks.length ?? 0;
+  const lastTrick =
+    isPlaying && gameState && trickCount > 0
+      ? gameState.tricks[trickCount - 1]
+      : null;
+  const noCardsPlayed = Boolean(
+    gameState &&
+      gameState.currentTrick.cards[0] === null &&
+      gameState.currentTrick.cards[1] === null,
+  );
+  const showingLastTrick = noCardsPlayed && lastTrick !== null;
+  const canPeekLastTrick = !showingLastTrick && lastTrick !== null;
+  const isPeekingLastTrick = canPeekLastTrick && peekTrickCount === trickCount;
+
+  useEffect(() => {
+    if (!isPeekingLastTrick) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        setPeekTrickCount(null);
+      }
+    };
+
+    const handlePointerDown = (event: MouseEvent) => {
+      if (
+        peekContainerRef.current &&
+        !peekContainerRef.current.contains(event.target as Node)
+      ) {
+        setPeekTrickCount(null);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('mousedown', handlePointerDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('mousedown', handlePointerDown);
+    };
+  }, [isPeekingLastTrick]);
 
   if (!gameState || gameState.phase !== 'playing') return null;
 
   const opponent: PlayerID = localPlayer === 0 ? 1 : 0;
   const trick = gameState.currentTrick;
-  const lastTrick =
-    gameState.tricks.length > 0
-      ? gameState.tricks[gameState.tricks.length - 1]
-      : null;
 
   // Keep the resolved trick visible on the baize until the next lead is played.
-  const noCardsPlayed = trick.cards[0] === null && trick.cards[1] === null;
-  const showingLastTrick = noCardsPlayed && lastTrick !== null;
-  const displayTrickIndex = showingLastTrick ? gameState.tricks.length - 1 : gameState.tricks.length;
-  const displayCards = showingLastTrick ? lastTrick.cards : trick.cards;
-  const winner = showingLastTrick ? (lastTrick.winner ?? null) : null;
+  const displayTrickIndex = showingLastTrick ? trickCount - 1 : trickCount;
+  const displayCards = showingLastTrick ? lastTrick!.cards : trick.cards;
+  const winner = showingLastTrick ? (lastTrick!.winner ?? null) : null;
 
   const isMyTurn = gameState.currentPlayer === localPlayer;
   const trumpSuit = gameState.trumpSuit;
@@ -41,6 +80,9 @@ export function PlayArea() {
 
   const oppCard = displayCards[opponent];
   const myCard = displayCards[localPlayer];
+  const lastTrickOppCard = lastTrick?.cards[opponent] ?? null;
+  const lastTrickMyCard = lastTrick?.cards[localPlayer] ?? null;
+  const lastTrickWinner = lastTrick?.winner ?? null;
 
   const slotPlaceholder = (active: boolean, label: string) => (
     <div
@@ -56,8 +98,11 @@ export function PlayArea() {
 
   return (
     <div className="flex flex-col items-center gap-2 ultra-short:gap-1 w-full max-w-md">
-      {/* Contract, trick count, and Belote announcements */}
-      <div className="flex flex-wrap items-center justify-center gap-2.5 ultra-short:gap-1.5 text-xs">
+      {/* Contract, trick count, last-trick peek, and Belote announcements */}
+      <div
+        ref={peekContainerRef}
+        className="relative flex flex-wrap items-center justify-center gap-2.5 ultra-short:gap-1.5 text-xs"
+      >
         {trumpSuit && (
           <div
             data-testid="trump-indicator"
@@ -92,9 +137,121 @@ export function PlayArea() {
           Trick {gameState.tricks.length + (showingLastTrick ? 0 : 1)}/16
         </div>
 
+        {canPeekLastTrick && (
+          <button
+            type="button"
+            data-testid="last-trick-toggle"
+            aria-expanded={isPeekingLastTrick}
+            aria-controls="last-trick-popover"
+            onClick={() =>
+              setPeekTrickCount(isPeekingLastTrick ? null : trickCount)
+            }
+            className={`rounded-full px-2.5 py-1 ultra-short:py-0.5 text-[11px] font-medium transition-colors cursor-pointer ${
+              isPeekingLastTrick
+                ? 'bg-[#d4a84b]/20 border border-[#d4a84b]/60 text-[#e3ba62]'
+                : 'ardoise-bar text-[#a4bba9] hover:text-[#efe9dc] hover:border-[#d4a84b]/40'
+            }`}
+          >
+            Last trick
+          </button>
+        )}
+
         {(myBeloteLabel || oppBeloteLabel) && (
           <div className="rounded-full bg-[#d4a84b]/20 border border-[#d4a84b]/50 px-2.5 py-0.5 font-display font-semibold text-[#e3ba62]">
             {myBeloteLabel ?? oppBeloteLabel}
+          </div>
+        )}
+
+        {isPeekingLastTrick && lastTrick && (
+          <div
+            id="last-trick-popover"
+            data-testid="last-trick-popover"
+            role="region"
+            aria-label={`Trick ${trickCount} preview`}
+            className="ardoise-panel absolute top-full mt-2 left-1/2 -translate-x-1/2 z-30 rounded-xl px-4 py-3 border border-[#d4a84b]/45 w-max max-w-[calc(100vw-2rem)]"
+          >
+            <div className="flex items-center justify-between gap-4 mb-2.5">
+              <div className="flex items-center gap-2 text-[11px]">
+                <span className="font-display font-semibold text-[#efe9dc] tabular-nums">
+                  Trick {trickCount}
+                </span>
+                <span
+                  className={
+                    lastTrickWinner === localPlayer
+                      ? 'text-[#e3ba62] font-medium'
+                      : 'text-[#a4bba9]'
+                  }
+                >
+                  Won by {lastTrickWinner === localPlayer ? 'you' : 'opponent'}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPeekTrickCount(null)}
+                aria-label="Close last trick preview"
+                className="btn-slate w-5 h-5 rounded-md flex items-center justify-center text-xs leading-none cursor-pointer"
+              >
+                <span aria-hidden="true">&times;</span>
+              </button>
+            </div>
+
+            <div className="flex items-center justify-center gap-5">
+              <div className="flex flex-col items-center gap-1">
+                <span className="text-[10px] text-[#a4bba9]">
+                  Opponent{lastTrick.leader === opponent ? ' · Led' : ''}
+                </span>
+                <div
+                  className={
+                    lastTrickWinner !== opponent ? 'opacity-50' : ''
+                  }
+                >
+                  {lastTrickOppCard && (
+                    <>
+                      <Card
+                        card={lastTrickOppCard}
+                        size="sm"
+                        isTrump={Boolean(
+                          trumpSuit && lastTrickOppCard.suit === trumpSuit,
+                        )}
+                        decorative
+                      />
+                      <span className="sr-only">
+                        {lastTrickOppCard.rank} of {SUIT_NAMES[lastTrickOppCard.suit]}
+                        {trumpSuit && lastTrickOppCard.suit === trumpSuit ? ', trump' : ''}
+                      </span>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex flex-col items-center gap-1">
+                <span className="text-[10px] text-[#a4bba9]">
+                  You{lastTrick.leader === localPlayer ? ' · Led' : ''}
+                </span>
+                <div
+                  className={
+                    lastTrickWinner !== localPlayer ? 'opacity-50' : ''
+                  }
+                >
+                  {lastTrickMyCard && (
+                    <>
+                      <Card
+                        card={lastTrickMyCard}
+                        size="sm"
+                        isTrump={Boolean(
+                          trumpSuit && lastTrickMyCard.suit === trumpSuit,
+                        )}
+                        decorative
+                      />
+                      <span className="sr-only">
+                        {lastTrickMyCard.rank} of {SUIT_NAMES[lastTrickMyCard.suit]}
+                        {trumpSuit && lastTrickMyCard.suit === trumpSuit ? ', trump' : ''}
+                      </span>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </div>
