@@ -1,4 +1,5 @@
 import { useGame } from '../hooks/useGame';
+import { useGameFeedback } from '../hooks/useGameFeedback';
 import { useGameStore } from '../store/gameStore';
 import { destroyPeer } from '../networking/peer';
 import { disconnectSignaling } from '../networking/signaling';
@@ -12,6 +13,7 @@ import { TrumpAnnouncement } from './TrumpAnnouncement';
 import type { PlayerID } from '../game/types';
 
 export function GameBoard() {
+  useGameFeedback();
   const { gameState, localPlayer } = useGame();
   const connectionStatus = useGameStore((s) => s.connectionStatus);
   const hostGameSaved = useGameStore((s) => s.hostGameSaved);

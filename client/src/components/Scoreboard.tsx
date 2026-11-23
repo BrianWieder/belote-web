@@ -1,4 +1,6 @@
+import { useSyncExternalStore } from 'react';
 import { useGame } from '../hooks/useGame';
+import { isMuted, subscribeMuted, toggleMuted } from '../audio/sounds';
 import { SuitIcon } from './Card';
 import { SUIT_NAMES, isRedSuit } from './suits';
 import type { PlayerID } from '../game/types';
@@ -7,6 +9,7 @@ const TARGET_SCORE = 1000;
 
 export function Scoreboard() {
   const { gameState, localPlayer } = useGame();
+  const muted = useSyncExternalStore(subscribeMuted, isMuted, () => false);
   if (!gameState) return null;
 
   const opponent: PlayerID = localPlayer === 0 ? 1 : 0;
@@ -19,65 +22,116 @@ export function Scoreboard() {
   return (
     <header
       data-testid="scoreboard"
-      className="ardoise-bar w-full max-w-lg rounded-xl px-4 py-2 tall-sm:px-5 tall-sm:py-2.5 ultra-short:py-1.5"
+      className="ardoise-bar w-full max-w-lg rounded-xl px-3.5 py-2 tall-sm:px-5 tall-sm:py-2.5 ultra-short:py-1.5"
     >
-      <div className="grid grid-cols-3 items-center gap-3">
-        {/* Local player score */}
-        <div className="flex flex-col items-start">
-          <div className="flex items-center gap-1.5 text-xs text-[#a4bba9]">
-            <span>You</span>
-            {gameState.dealer === localPlayer && (
-              <span
-                title="Dealer for this round"
-                className="inline-flex items-center rounded-full bg-[#d4a84b]/20 border border-[#d4a84b]/45 px-1.5 py-[1px] text-[10px] font-medium text-[#e3ba62]"
-              >
-                Dealer
-              </span>
-            )}
+      <div className="flex items-center gap-2 sm:gap-3">
+        <div className="grid grid-cols-3 items-center gap-2 sm:gap-3 flex-1 min-w-0">
+          {/* Local player score */}
+          <div className="flex flex-col items-start">
+            <div className="flex items-center gap-1.5 text-xs text-[#a4bba9]">
+              <span>You</span>
+              {gameState.dealer === localPlayer && (
+                <span
+                  title="Dealer for this round"
+                  className="inline-flex items-center rounded-full bg-[#d4a84b]/20 border border-[#d4a84b]/45 px-1.5 py-[1px] text-[10px] font-medium text-[#e3ba62]"
+                >
+                  Dealer
+                </span>
+              )}
+            </div>
+            <div className="font-display text-lg sm:text-xl font-semibold text-[#efe9dc] tabular-nums leading-tight">
+              {myScore}
+            </div>
+            <div className="w-full max-w-24 h-1 rounded-full bg-[#efe9dc]/10 mt-1 overflow-hidden">
+              <div
+                className="h-full rounded-full bg-[#d4a84b] transition-all duration-300"
+                style={{ width: `${myPct}%` }}
+              />
+            </div>
           </div>
-          <div className="font-display text-lg sm:text-xl font-semibold text-[#efe9dc] tabular-nums leading-tight">
-            {myScore}
+
+          {/* Center round & target */}
+          <div className="text-center">
+            <div className="font-display text-xs sm:text-sm font-medium text-[#efe9dc]">
+              Round {roundNum}
+            </div>
+            <div className="text-[11px] text-[#73907c] tabular-nums">
+              First to 1,000
+            </div>
           </div>
-          <div className="w-full max-w-24 h-1 rounded-full bg-[#efe9dc]/10 mt-1 overflow-hidden">
-            <div
-              className="h-full rounded-full bg-[#d4a84b] transition-all duration-300"
-              style={{ width: `${myPct}%` }}
-            />
+
+          {/* Opponent score */}
+          <div className="flex flex-col items-end">
+            <div className="flex items-center gap-1.5 text-xs text-[#a4bba9]">
+              {gameState.dealer === opponent && (
+                <span
+                  title="Dealer for this round"
+                  className="inline-flex items-center rounded-full bg-[#d4a84b]/20 border border-[#d4a84b]/45 px-1.5 py-[1px] text-[10px] font-medium text-[#e3ba62]"
+                >
+                  Dealer
+                </span>
+              )}
+              <span>Opponent</span>
+            </div>
+            <div className="font-display text-lg sm:text-xl font-semibold text-[#efe9dc] tabular-nums leading-tight">
+              {oppScore}
+            </div>
+            <div className="w-full max-w-24 h-1 rounded-full bg-[#efe9dc]/10 mt-1 overflow-hidden">
+              <div
+                className="h-full rounded-full bg-[#a4bba9] transition-all duration-300 ml-auto"
+                style={{ width: `${oppPct}%` }}
+              />
+            </div>
           </div>
         </div>
 
-        {/* Center round & target */}
-        <div className="text-center">
-          <div className="font-display text-xs sm:text-sm font-medium text-[#efe9dc]">
-            Round {roundNum}
-          </div>
-          <div className="text-[11px] text-[#73907c] tabular-nums">
-            First to 1,000
-          </div>
-        </div>
-
-        {/* Opponent score */}
-        <div className="flex flex-col items-end">
-          <div className="flex items-center gap-1.5 text-xs text-[#a4bba9]">
-            {gameState.dealer === opponent && (
-              <span
-                title="Dealer for this round"
-                className="inline-flex items-center rounded-full bg-[#d4a84b]/20 border border-[#d4a84b]/45 px-1.5 py-[1px] text-[10px] font-medium text-[#e3ba62]"
+        {/* Sound mute/unmute toggle */}
+        <div className="pl-2 border-l border-[#efe9dc]/12 shrink-0">
+          <button
+            type="button"
+            data-testid="sound-toggle"
+            aria-label={muted ? 'Unmute sound effects' : 'Mute sound effects'}
+            aria-pressed={muted}
+            title={muted ? 'Unmute sound effects' : 'Mute sound effects'}
+            onClick={() => toggleMuted()}
+            className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors cursor-pointer ${
+              muted
+                ? 'text-[#73907c] bg-[#efe9dc]/5 border border-[#efe9dc]/10 hover:text-[#a4bba9]'
+                : 'text-[#a4bba9] hover:text-[#efe9dc] hover:bg-[#efe9dc]/10 border border-transparent'
+            }`}
+          >
+            {muted ? (
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.9"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+                className="w-4 h-4"
               >
-                Dealer
-              </span>
+                <path d="M11 5L6 9H2v6h4l5 4V5z" />
+                <line x1="22" y1="9" x2="16" y2="15" />
+                <line x1="16" y1="9" x2="22" y2="15" />
+              </svg>
+            ) : (
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.9"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+                className="w-4 h-4"
+              >
+                <path d="M11 5L6 9H2v6h4l5 4V5z" />
+                <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+                <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+              </svg>
             )}
-            <span>Opponent</span>
-          </div>
-          <div className="font-display text-lg sm:text-xl font-semibold text-[#efe9dc] tabular-nums leading-tight">
-            {oppScore}
-          </div>
-          <div className="w-full max-w-24 h-1 rounded-full bg-[#efe9dc]/10 mt-1 overflow-hidden">
-            <div
-              className="h-full rounded-full bg-[#a4bba9] transition-all duration-300 ml-auto"
-              style={{ width: `${oppPct}%` }}
-            />
-          </div>
+          </button>
         </div>
       </div>
     </header>
