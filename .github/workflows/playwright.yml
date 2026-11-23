@@ -19,25 +19,9 @@ jobs:
           cache: "npm"
       - name: Install dependencies
         run: npm ci
-      - name: Get Playwright version
-        id: playwright-version
-        run: echo "version=$(node -p "require(require.resolve('@playwright/test/package.json')).version")" >> "$GITHUB_OUTPUT"
-      - name: Cache Playwright browsers
-        id: playwright-cache
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}-chromium-shell
-      - name: Install Playwright Chromium (cache miss)
-        if: steps.playwright-cache.outputs.cache-hit != 'true'
+      - name: Install Playwright Chromium
         run: npx playwright install --only-shell chromium
         working-directory: ./client
-      - name: Ensure Chromium shared library dependencies
-        run: |
-          if ! ldconfig -p | grep -q 'libgbm\.so\.1'; then
-            sudo apt-get update -o Acquire::http::Timeout=15 -o Acquire::https::Timeout=15 -o Acquire::Retries=3
-            sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y --no-install-recommends libgbm1
-          fi
       - name: Run Playwright tests
         run: npx playwright test
         working-directory: ./client
