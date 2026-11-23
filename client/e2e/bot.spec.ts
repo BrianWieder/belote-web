@@ -166,13 +166,28 @@ test.describe('Solo AI bot mode & local UX', () => {
     await page.keyboard.press('Escape');
     await expect(page.getByTestId('two-tap-hint')).toHaveCount(0);
 
-    // ArrowRight moves keyboard focus to a playable card
+    // ArrowRight moves keyboard focus from the first playable card to a different playable card
     await page.keyboard.press('ArrowRight');
-    const focusedPlayable = await page.evaluate(() => {
+    const focusedAfterRight = await page.evaluate(() => {
       const el = document.activeElement;
-      return el?.tagName === 'BUTTON' && el.hasAttribute('data-playable');
+      if (!el || el.tagName !== 'BUTTON' || !el.hasAttribute('data-playable')) {
+        return null;
+      }
+      return el.getAttribute('data-testid');
     });
-    expect(focusedPlayable).toBe(true);
+    expect(focusedAfterRight).toBeTruthy();
+    expect(focusedAfterRight).not.toBe(cardTestId);
+
+    // ArrowLeft moves keyboard focus back to the original playable card
+    await page.keyboard.press('ArrowLeft');
+    const focusedAfterLeft = await page.evaluate(() => {
+      const el = document.activeElement;
+      if (!el || el.tagName !== 'BUTTON' || !el.hasAttribute('data-playable')) {
+        return null;
+      }
+      return el.getAttribute('data-testid');
+    });
+    expect(focusedAfterLeft).toBe(cardTestId);
 
     // Tap twice on the same card to confirm play
     const targetCard = page.locator('button[data-playable]:not(:disabled)').first();
