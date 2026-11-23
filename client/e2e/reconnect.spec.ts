@@ -59,6 +59,15 @@ async function playOneFastTrick(hostPage: Page, guestPage: Page) {
   }
 }
 
+async function expectTrickResolved(hostPage: Page, guestPage: Page, trickNumber: number) {
+  await Promise.all([
+    expect(hostPage.getByTestId('trick-counter')).toContainText(`Trick ${trickNumber}/16`),
+    expect(guestPage.getByTestId('trick-counter')).toContainText(`Trick ${trickNumber}/16`),
+    expect(hostPage.getByText(/Last trick won by/)).toBeVisible(),
+    expect(guestPage.getByText(/Last trick won by/)).toBeVisible(),
+  ]);
+}
+
 test.describe('In-place WebRTC reconnection', () => {
   let hostContext: BrowserContext;
   let guestContext: BrowserContext;
@@ -98,10 +107,9 @@ test.describe('In-place WebRTC reconnection', () => {
     await hostPage.getByTestId('play-area').waitFor({ timeout: 10_000 });
     await guestPage.getByTestId('play-area').waitFor({ timeout: 10_000 });
 
-    // 3. Play Trick 1 cleanly
+    // 3. Play Trick 1 cleanly and verify both peers resolve it
     await playOneFastTrick(hostPage, guestPage);
-    await expect(hostPage.getByTestId('trick-counter')).toContainText('Trick 1/16');
-    await expect(guestPage.getByTestId('trick-counter')).toContainText('Trick 1/16');
+    await expectTrickResolved(hostPage, guestPage, 1);
 
     const initialPcCount = await guestPage.evaluate(
       () => window.__testPeerConnections?.length ?? 0,
@@ -138,10 +146,9 @@ test.describe('In-place WebRTC reconnection', () => {
     );
     expect(postReconnectPcCount).toBeGreaterThan(initialPcCount);
 
-    // 6. Play Trick 2 across the recovered WebRTC connection and verify both peers stay in sync
+    // 6. Play Trick 2 across the recovered WebRTC connection and verify both peers resolve it
     await playOneFastTrick(hostPage, guestPage);
-    await expect(hostPage.getByTestId('trick-counter')).toContainText('Trick 2/16');
-    await expect(guestPage.getByTestId('trick-counter')).toContainText('Trick 2/16');
+    await expectTrickResolved(hostPage, guestPage, 2);
   });
 
   test('recovers mid-game in place after host loses WebRTC and signaling connectivity', async () => {
@@ -162,8 +169,7 @@ test.describe('In-place WebRTC reconnection', () => {
     await guestPage.getByTestId('play-area').waitFor({ timeout: 10_000 });
 
     await playOneFastTrick(hostPage, guestPage);
-    await expect(hostPage.getByTestId('trick-counter')).toContainText('Trick 1/16');
-    await expect(guestPage.getByTestId('trick-counter')).toContainText('Trick 1/16');
+    await expectTrickResolved(hostPage, guestPage, 1);
 
     const initialPcCount = await hostPage.evaluate(
       () => window.__testPeerConnections?.length ?? 0,
@@ -199,7 +205,6 @@ test.describe('In-place WebRTC reconnection', () => {
     expect(postReconnectPcCount).toBeGreaterThan(initialPcCount);
 
     await playOneFastTrick(hostPage, guestPage);
-    await expect(hostPage.getByTestId('trick-counter')).toContainText('Trick 2/16');
-    await expect(guestPage.getByTestId('trick-counter')).toContainText('Trick 2/16');
+    await expectTrickResolved(hostPage, guestPage, 2);
   });
 });
