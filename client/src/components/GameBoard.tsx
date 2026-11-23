@@ -22,6 +22,7 @@ export function GameBoard({ onReturnToLobby }: GameBoardProps) {
   useGameFeedback();
   const { gameState, localPlayer, isConnected, isMyTurn, bidTake, bidPass } = useGame();
   const connectionStatus = useGameStore((s) => s.connectionStatus);
+  const gameMode = useGameStore((s) => s.gameMode);
   const hostGameSaved = useGameStore((s) => s.hostGameSaved);
   const resetConnection = useGameStore((s) => s.resetConnection);
   const twoTapPlay = useGameStore((s) => s.twoTapPlay);
@@ -65,6 +66,7 @@ export function GameBoard({ onReturnToLobby }: GameBoardProps) {
 
   if (!gameState) return null;
 
+  const isBotMode = gameMode === 'bot';
   const isBidding =
     gameState.phase === 'bidding-round1' ||
     gameState.phase === 'bidding-round2' ||
@@ -72,11 +74,15 @@ export function GameBoard({ onReturnToLobby }: GameBoardProps) {
   const isPlaying = gameState.phase === 'playing';
   const showTableau = isPlaying;
   const opponent: PlayerID = localPlayer === 0 ? 1 : 0;
-  const isReconnecting = connectionStatus === 'reconnecting';
-  const isDisconnected = connectionStatus === 'disconnected';
+  const isReconnecting = !isBotMode && connectionStatus === 'reconnecting';
+  const isDisconnected = !isBotMode && connectionStatus === 'disconnected';
   const showTwoTapHint = isPlaying && isMyTurn && isConnected && twoTapPlay && selectedCardKey !== null;
 
   const handleReturnToLobby = () => {
+    if (isBotMode) {
+      resetConnection();
+      return;
+    }
     if (onReturnToLobby) {
       onReturnToLobby();
       return;
@@ -94,7 +100,7 @@ export function GameBoard({ onReturnToLobby }: GameBoardProps) {
     >
       {/* Top section: Scoreboard + Opponent zone */}
       <div className="flex flex-col items-center gap-2 ultra-short:gap-1">
-        <Scoreboard />
+        <Scoreboard onLeave={isBotMode ? handleReturnToLobby : undefined} />
 
         {isReconnecting && !isModalOpen && (
           <div

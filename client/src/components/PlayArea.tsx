@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { useGame } from '../hooks/useGame';
+import { useGameStore } from '../store/gameStore';
 import { Card, SuitIcon } from './Card';
 import { SUIT_NAMES, isRedSuit } from './suits';
 import type { PlayerID } from '../game/types';
 
 export function PlayArea() {
   const { gameState, localPlayer } = useGame();
+  const gameMode = useGameStore((s) => s.gameMode);
   const prefersReducedMotion = useReducedMotion();
   const [peekTrickCount, setPeekTrickCount] = useState<number | null>(null);
   const peekContainerRef = useRef<HTMLDivElement>(null);
@@ -55,6 +57,9 @@ export function PlayArea() {
 
   if (!gameState || gameState.phase !== 'playing') return null;
 
+  const isBot = gameMode === 'bot';
+  const oppShort = isBot ? 'Bot' : 'Opp';
+  const oppLabel = isBot ? 'Bot' : 'Opponent';
   const opponent: PlayerID = localPlayer === 0 ? 1 : 0;
   const trick = gameState.currentTrick;
 
@@ -73,9 +78,9 @@ export function PlayArea() {
       ? 'Belote!'
       : null;
   const oppBeloteLabel = gameState.rebeloteDeclared[opponent]
-    ? 'Opp: Rebelote!'
+    ? `${oppShort}: Rebelote!`
     : gameState.beloteDeclared[opponent]
-      ? 'Opp: Belote!'
+      ? `${oppShort}: Belote!`
       : null;
 
   const oppCard = displayCards[opponent];
@@ -121,7 +126,7 @@ export function PlayArea() {
             </span>
             <div className="flex flex-col leading-none">
               <span className="text-[9px] tall-sm:text-[10px] uppercase tracking-[0.14em] font-semibold text-[#e3ba62]">
-                Trump{gameState.taker !== null ? ` · ${gameState.taker === localPlayer ? 'You' : 'Opp'}` : ''}
+                Trump{gameState.taker !== null ? ` · ${gameState.taker === localPlayer ? 'You' : oppShort}` : ''}
               </span>
               <span className="font-display text-sm tall-sm:text-base ultra-short:text-xs font-semibold text-[#efe9dc] mt-0.5">
                 {SUIT_NAMES[trumpSuit]}
@@ -182,7 +187,7 @@ export function PlayArea() {
                       : 'text-[#a4bba9]'
                   }
                 >
-                  Won by {lastTrickWinner === localPlayer ? 'you' : 'opponent'}
+                  Won by {lastTrickWinner === localPlayer ? 'you' : isBot ? 'Bot' : 'opponent'}
                 </span>
               </div>
               <button
@@ -198,7 +203,7 @@ export function PlayArea() {
             <div className="flex items-center justify-center gap-5">
               <div className="flex flex-col items-center gap-1">
                 <span className="text-[10px] text-[#a4bba9]">
-                  Opponent{lastTrick.leader === opponent ? ' · Led' : ''}
+                  {oppLabel}{lastTrick.leader === opponent ? ' · Led' : ''}
                 </span>
                 <div
                   className={
@@ -263,7 +268,7 @@ export function PlayArea() {
       >
         {/* Opponent's card */}
         <div className="flex flex-col items-center gap-1">
-          <span className="text-[11px] text-[#a4bba9]">Opponent</span>
+          <span className="text-[11px] text-[#a4bba9]">{oppLabel}</span>
           <div
             className={`-translate-y-0.5 -rotate-2 transition-opacity ${
               showingLastTrick && winner !== opponent ? 'opacity-45' : ''
@@ -321,14 +326,14 @@ export function PlayArea() {
         {showingLastTrick ? (
           <div className="text-center">
             <span className="text-[#a4bba9]">
-              Last trick won by {winner === localPlayer ? 'you' : 'opponent'}.{' '}
+              Last trick won by {winner === localPlayer ? 'you' : isBot ? 'Bot' : 'opponent'}.{' '}
             </span>
             <span
               className={`font-semibold ${
                 isMyTurn ? 'text-[#e3ba62]' : 'text-[#a4bba9]'
               }`}
             >
-              {isMyTurn ? 'Your turn to lead' : 'Opponent leads next'}
+              {isMyTurn ? 'Your turn to lead' : `${oppLabel} leads next`}
             </span>
           </div>
         ) : (
@@ -337,13 +342,13 @@ export function PlayArea() {
               isMyTurn ? 'text-[#e3ba62]' : 'text-[#a4bba9]'
             }`}
           >
-            {isMyTurn ? 'Your turn to play' : "Opponent's turn"}
+            {isMyTurn ? 'Your turn to play' : `${oppLabel}'s turn`}
           </div>
         )}
 
         <div className="flex items-center gap-4 text-[11px] text-[#73907c] tabular-nums">
           <span>Your tricks: {gameState.tricksWon[localPlayer].length / 2}</span>
-          <span>Opponent: {gameState.tricksWon[opponent].length / 2}</span>
+          <span>{oppLabel}: {gameState.tricksWon[opponent].length / 2}</span>
         </div>
       </div>
     </div>

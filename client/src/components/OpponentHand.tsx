@@ -1,19 +1,22 @@
 import { useGame } from '../hooks/useGame';
+import { useGameStore } from '../store/gameStore';
 import { Card } from './Card';
 import type { PlayerID } from '../game/types';
 
 export function OpponentHand() {
   const { gameState, localPlayer } = useGame();
+  const gameMode = useGameStore((s) => s.gameMode);
   if (!gameState) return null;
 
   const opponent: PlayerID = localPlayer === 0 ? 1 : 0;
+  const opponentLabel = gameMode === 'bot' ? 'Bot' : 'Opponent';
   const count = gameState.hands[opponent].length;
   const mid = (count - 1) / 2;
 
   return (
     <div
       role="img"
-      aria-label={`Opponent holds ${count} ${count === 1 ? 'card' : 'cards'} in hand`}
+      aria-label={`${opponentLabel} holds ${count} ${count === 1 ? 'card' : 'cards'} in hand`}
       className="min-h-11 tall-sm:min-h-12 ultra-short:min-h-9 flex items-center justify-center"
     >
       <div className="flex justify-center items-center">

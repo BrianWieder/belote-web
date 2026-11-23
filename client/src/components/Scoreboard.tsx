@@ -11,9 +11,15 @@ import type { PlayerID } from '../game/types';
 
 const TARGET_SCORE = 1000;
 
-export function Scoreboard() {
+interface ScoreboardProps {
+  onLeave?: () => void;
+}
+
+export function Scoreboard({ onLeave }: ScoreboardProps = {}) {
   const { gameState, localPlayer } = useGame();
   const muted = useSyncExternalStore(subscribeMuted, isMuted, () => false);
+  const gameMode = useGameStore((s) => s.gameMode);
+  const botDifficulty = useGameStore((s) => s.botDifficulty);
   const twoTapPlay = useGameStore((s) => s.twoTapPlay);
   const toggleTwoTapPlay = useGameStore((s) => s.toggleTwoTapPlay);
   const [activeModal, setActiveModal] = useState<'rules' | 'ledger' | null>(null);
@@ -21,6 +27,10 @@ export function Scoreboard() {
 
   if (!gameState) return null;
 
+  const isBot = gameMode === 'bot';
+  const opponentLabel = isBot
+    ? `Bot (${botDifficulty === 'smart' ? 'Smart' : 'Casual'})`
+    : 'Opponent';
   const opponent: PlayerID = localPlayer === 0 ? 1 : 0;
   const myScore = gameState.gameScore[localPlayer];
   const oppScore = gameState.gameScore[opponent];
@@ -125,6 +135,16 @@ export function Scoreboard() {
                 >
                   ?
                 </button>
+                {isBot && onLeave && (
+                  <button
+                    type="button"
+                    data-testid="leave-bot-game"
+                    onClick={onLeave}
+                    className="btn-slate inline-flex items-center justify-center h-6 px-2 rounded-full text-[10px] font-medium text-[#a4bba9] hover:text-[#efe9dc] cursor-pointer transition-colors"
+                  >
+                    Leave
+                  </button>
+                )}
               </div>
             </div>
 
@@ -139,7 +159,7 @@ export function Scoreboard() {
                     Dealer
                   </span>
                 )}
-                <span>Opponent</span>
+                <span>{opponentLabel}</span>
               </div>
               <div className="font-display text-lg sm:text-xl font-semibold text-[#efe9dc] tabular-nums leading-tight">
                 {oppScore}
@@ -224,6 +244,7 @@ interface DialogDisconnectProps {
 
 export function RoundSummary({ reconnecting, disconnected, matchSaved, onReturnToLobby }: DialogDisconnectProps) {
   const { gameState, localPlayer, roundReady, nextRound } = useGame();
+  const gameMode = useGameStore((s) => s.gameMode);
   const dialogRef = useRef<HTMLDivElement>(null);
 
   const lastScore =
@@ -236,6 +257,7 @@ export function RoundSummary({ reconnecting, disconnected, matchSaved, onReturnT
 
   if (!gameState || !lastScore) return null;
 
+  const isBot = gameMode === 'bot';
   const opponent: PlayerID = localPlayer === 0 ? 1 : 0;
   const red = isRedSuit(lastScore.trumpSuit);
   const localReady = roundReady[localPlayer];
@@ -273,14 +295,14 @@ export function RoundSummary({ reconnecting, disconnected, matchSaved, onReturnT
             {SUIT_NAMES[lastScore.trumpSuit]}
           </span>
           <span>
-            trump, taken by {lastScore.taker === localPlayer ? 'you' : 'opponent'}
+            trump, taken by {lastScore.taker === localPlayer ? 'you' : isBot ? 'Bot' : 'opponent'}
           </span>
         </div>
 
         {lastScore.dedans && (
           <div className="mb-4 rounded-xl bg-[#5c1619]/60 border border-[#e45a5e]/35 px-3.5 py-2.5 text-xs sm:text-sm text-[#f7b4b6] text-center">
             <strong>Dedans:</strong>{' '}
-            {lastScore.taker === localPlayer ? 'You' : 'Opponent'} fell short of the contract — all 162 points go to the defender.
+            {lastScore.taker === localPlayer ? 'You' : isBot ? 'Bot' : 'Opponent'} fell short of the contract — all 162 points go to the defender.
           </div>
         )}
 
@@ -289,7 +311,7 @@ export function RoundSummary({ reconnecting, disconnected, matchSaved, onReturnT
           <div className="grid grid-cols-[1fr_3.5rem_3.5rem] gap-2 pb-2 mb-2 border-b border-[#efe9dc]/12 text-xs text-[#a4bba9]">
             <span>Breakdown</span>
             <span className="text-right font-medium text-[#efe9dc]">You</span>
-            <span className="text-right">Opp</span>
+            <span className="text-right">{isBot ? 'Bot' : 'Opp'}</span>
           </div>
 
           <div className="space-y-1.5 text-xs sm:text-sm">
@@ -347,7 +369,16 @@ export function RoundSummary({ reconnecting, disconnected, matchSaved, onReturnT
           </div>
         </div>
 
-        {reconnecting && onReturnToLobby ? (
+        {isBot ? (
+          <button
+            type="button"
+            data-testid="next-round"
+            onClick={nextRound}
+            className="btn-brass w-full font-semibold py-3 rounded-xl cursor-pointer inline-flex items-center justify-center gap-2"
+          >
+            Deal next round
+          </button>
+        ) : reconnecting && onReturnToLobby ? (
           <div className="space-y-2.5">
             <p
               role="status"
@@ -422,6 +453,8 @@ export function RoundSummary({ reconnecting, disconnected, matchSaved, onReturnT
 
 export function GameOver({ reconnecting, disconnected, onReturnToLobby }: DialogDisconnectProps) {
   const { gameState, localPlayer, rematchReady, requestRematch } = useGame();
+  const gameMode = useGameStore((s) => s.gameMode);
+  const botDifficulty = useGameStore((s) => s.botDifficulty);
   const dialogRef = useRef<HTMLDivElement>(null);
   const isOpen = Boolean(gameState && gameState.phase === 'game-over');
 
@@ -429,6 +462,10 @@ export function GameOver({ reconnecting, disconnected, onReturnToLobby }: Dialog
 
   if (!gameState || !isOpen) return null;
 
+  const isBot = gameMode === 'bot';
+  const opponentLabel = isBot
+    ? `Bot (${botDifficulty === 'smart' ? 'Smart' : 'Casual'})`
+    : 'Opponent';
   const opponent: PlayerID = localPlayer === 0 ? 1 : 0;
   const myScore = gameState.gameScore[localPlayer];
   const oppScore = gameState.gameScore[opponent];
@@ -454,7 +491,7 @@ export function GameOver({ reconnecting, disconnected, onReturnToLobby }: Dialog
           id="game-over-heading"
           className="font-display text-3xl sm:text-4xl font-semibold mb-2"
         >
-          {isDraw ? "It's a Draw!" : won ? 'You Win!' : 'Opponent Wins'}
+          {isDraw ? "It's a Draw!" : won ? 'You Win!' : isBot ? 'Bot Wins' : 'Opponent Wins'}
         </h2>
         <p className="text-sm text-[#a4bba9] mb-5">
           {gameState.roundScores.length} {gameState.roundScores.length === 1 ? 'round' : 'rounds'} played
@@ -469,14 +506,33 @@ export function GameOver({ reconnecting, disconnected, onReturnToLobby }: Dialog
           </div>
           <div className="h-8 w-px bg-[#efe9dc]/15" />
           <div>
-            <div className="text-xs text-[#a4bba9] mb-0.5">Opponent</div>
+            <div className="text-xs text-[#a4bba9] mb-0.5">{opponentLabel}</div>
             <div className="font-display text-3xl font-bold text-[#efe9dc]">
               {gameState.gameScore[opponent]}
             </div>
           </div>
         </div>
 
-        {reconnecting && onReturnToLobby ? (
+        {isBot ? (
+          <div className="space-y-2.5">
+            <button
+              type="button"
+              data-testid="bot-rematch"
+              onClick={requestRematch}
+              className="btn-brass w-full font-semibold py-3.5 px-8 rounded-xl cursor-pointer"
+            >
+              Start a new match
+            </button>
+            <button
+              type="button"
+              data-testid="return-to-lobby"
+              onClick={onReturnToLobby ?? (() => window.location.reload())}
+              className="btn-slate w-full font-semibold py-3 px-6 rounded-xl cursor-pointer text-sm"
+            >
+              Return to lobby
+            </button>
+          </div>
+        ) : reconnecting && onReturnToLobby ? (
           <div className="space-y-2.5">
             <p
               role="status"
