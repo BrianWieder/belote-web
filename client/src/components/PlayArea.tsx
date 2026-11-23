@@ -20,6 +20,7 @@ export function PlayArea() {
   // Keep the resolved trick visible on the baize until the next lead is played.
   const noCardsPlayed = trick.cards[0] === null && trick.cards[1] === null;
   const showingLastTrick = noCardsPlayed && lastTrick !== null;
+  const displayTrickIndex = showingLastTrick ? gameState.tricks.length - 1 : gameState.tricks.length;
   const displayCards = showingLastTrick ? lastTrick.cards : trick.cards;
   const winner = showingLastTrick ? (lastTrick.winner ?? null) : null;
 
@@ -113,7 +114,7 @@ export function PlayArea() {
           >
             {oppCard ? (
               <motion.div
-                key={`opp-${oppCard.rank}-${oppCard.suit}-${gameState.tricks.length}`}
+                key={`opp-${oppCard.rank}-${oppCard.suit}-${displayTrickIndex}`}
                 initial={prefersReducedMotion ? false : { opacity: 0, y: -10, scale: 0.94 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
@@ -139,7 +140,7 @@ export function PlayArea() {
           >
             {myCard ? (
               <motion.div
-                key={`me-${myCard.rank}-${myCard.suit}-${gameState.tricks.length}`}
+                key={`me-${myCard.rank}-${myCard.suit}-${displayTrickIndex}`}
                 initial={prefersReducedMotion ? false : { opacity: 0, y: 10, scale: 0.94 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}

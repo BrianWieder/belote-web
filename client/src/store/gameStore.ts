@@ -4,7 +4,7 @@ import type { GameState, GameAction, PlayerID, Card } from '../game/types';
 import { createInitialState, applyAction, startNewRound } from '../game/engine';
 import { getPlayableCards } from '../game/validation';
 import { sendPeerMessage } from '../networking/peer';
-import { isValidResumableGameState, saveHostGame } from './savedGame';
+import { isValidGameState, isValidResumableGameState, saveHostGame } from './savedGame';
 
 function persistIfHost(gameState: GameState, isHost: boolean, localPlayer: PlayerID): boolean {
   if (isHost && localPlayer === 0) {
@@ -60,7 +60,7 @@ interface GameStore {
   performAction: (action: GameAction) => void;
   receiveAction: (action: GameAction, seq: number) => void;
   nextRound: () => void;
-  receiveNextRound: () => void;
+  receiveNextRound: (seq?: number) => void;
   requestResync: () => void;
   sendFullState: () => void;
   receiveGameState: (state: GameState) => void;
@@ -123,21 +123,26 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   performAction: (action) => {
-    const { gameState, isHost, localPlayer } = get();
-    if (!gameState) return;
+    const { gameState, connectionStatus, isHost, localPlayer } = get();
+    if (!gameState || connectionStatus !== 'connected') return;
 
     const next = applyAction(gameState, localPlayer, action);
     if (next.sequenceNumber === gameState.sequenceNumber) return; // action was rejected
+
+    if (
+      sendPeerMessage({
+        type: 'game-action',
+        action,
+        seq: next.sequenceNumber,
+      }) === false
+    ) {
+      return;
+    }
 
     const saved = persistIfHost(next, isHost, localPlayer);
     set({ gameState: next, hostGameSaved: saved });
     setSentryGameContext(next, localPlayer);
     Sentry.addBreadcrumb({ category: 'game', message: `Local action: ${action.type}`, level: 'info', data: action });
-    sendPeerMessage({
-      type: 'game-action',
-      action,
-      seq: next.sequenceNumber,
-    });
   },
 
   receiveAction: (action, seq) => {
@@ -179,9 +184,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   receiveGameState: (state) => {
     const { gameState, isHost, localPlayer } = get();
-    // Only accept a resync from a matching seed; applying a foreign state
-    // would corrupt the local game.
-    if (!gameState || state.seed !== gameState.seed) return;
+    // Only accept a valid resync from a matching seed when the local game isn't
+    // already over and the incoming snapshot isn't older than our local state.
+    if (!gameState || gameState.phase === 'game-over') return;
+    if (!isValidGameState(state)) return;
+    if (state.seed !== gameState.seed) return;
+    if (state.sequenceNumber < gameState.sequenceNumber) return;
+
     const saved = persistIfHost(state, isHost, localPlayer);
     set({ gameState: state, hostGameSaved: saved });
     setSentryGameContext(state, localPlayer);
@@ -189,19 +198,45 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   nextRound: () => {
-    const { gameState, isHost, localPlayer } = get();
-    if (!gameState || gameState.phase !== 'round-over') return;
+    const { gameState, connectionStatus, isHost, localPlayer } = get();
+    if (!gameState || gameState.phase !== 'round-over' || connectionStatus !== 'connected') return;
 
     const next = startNewRound(gameState);
+    if (sendPeerMessage({ type: 'new-round', seq: next.sequenceNumber }) === false) {
+      return;
+    }
+
     const saved = persistIfHost(next, isHost, localPlayer);
     set({ gameState: next, hostGameSaved: saved });
     setSentryGameContext(next, localPlayer);
-    sendPeerMessage({ type: 'new-round' });
   },
 
-  receiveNextRound: () => {
+  receiveNextRound: (seq) => {
     const { gameState, isHost, localPlayer } = get();
-    if (!gameState || gameState.phase !== 'round-over') return;
+    if (!gameState || gameState.phase === 'game-over') return;
+
+    if (gameState.phase !== 'round-over') {
+      if (seq !== undefined && seq > gameState.sequenceNumber) {
+        Sentry.addBreadcrumb({
+          category: 'game',
+          message: `New-round received in phase ${gameState.phase} (got seq ${seq}, local seq ${gameState.sequenceNumber}) — requesting resync`,
+          level: 'warning',
+        });
+        sendPeerMessage({ type: 'resync-request' });
+      }
+      return;
+    }
+
+    const expectedSeq = gameState.sequenceNumber + 1;
+    if (seq !== undefined && seq !== expectedSeq) {
+      Sentry.addBreadcrumb({
+        category: 'game',
+        message: `New-round sequence mismatch (got ${seq}, expected ${expectedSeq}) — requesting resync`,
+        level: 'warning',
+      });
+      sendPeerMessage({ type: 'resync-request' });
+      return;
+    }
 
     const next = startNewRound(gameState);
     const saved = persistIfHost(next, isHost, localPlayer);

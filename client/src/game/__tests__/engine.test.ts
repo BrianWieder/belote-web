@@ -400,6 +400,7 @@ describe('startNewRound', () => {
     expect(newRound.hands[0]).toHaveLength(5);
     expect(newRound.hands[1]).toHaveLength(5);
     expect(newRound.gameScore).toEqual(state.gameScore); // preserved
+    expect(newRound.sequenceNumber).toBe(state.sequenceNumber + 1);
     // Tableau should be reset
     for (const playerTableau of newRound.tableau) {
       for (const slot of playerTableau) {

@@ -10,12 +10,13 @@ export interface SavedGameSnapshot {
 
 const VALID_SUITS = new Set<Suit>(['hearts', 'diamonds', 'clubs', 'spades']);
 const VALID_RANKS = new Set<Rank>(['7', '8', '9', '10', 'J', 'Q', 'K', 'A']);
-const RESUMABLE_PHASES = new Set<Phase>([
+const ALL_PHASES = new Set<Phase>([
   'bidding-round1',
   'bidding-round2',
   'bidding-forced',
   'playing',
   'round-over',
+  'game-over',
 ]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -89,9 +90,9 @@ function isValidRoundScore(value: unknown): boolean {
   );
 }
 
-export function isValidResumableGameState(value: unknown): value is GameState {
+export function isValidGameState(value: unknown): value is GameState {
   if (!isRecord(value)) return false;
-  if (typeof value.phase !== 'string' || !RESUMABLE_PHASES.has(value.phase as Phase)) {
+  if (typeof value.phase !== 'string' || !ALL_PHASES.has(value.phase as Phase)) {
     return false;
   }
   if (typeof value.seed !== 'string' || value.seed.length === 0) return false;
@@ -156,6 +157,10 @@ export function isValidResumableGameState(value: unknown): value is GameState {
   }
 
   return true;
+}
+
+export function isValidResumableGameState(value: unknown): value is GameState {
+  return isValidGameState(value) && value.phase !== 'game-over';
 }
 
 function getDefaultStorage(): Storage | null {

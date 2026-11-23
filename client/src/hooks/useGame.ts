@@ -6,6 +6,7 @@ import { cardToString } from '../game/types';
 export function useGame() {
   const {
     gameState,
+    connectionStatus,
     localPlayer,
     performAction,
     nextRound,
@@ -13,29 +14,32 @@ export function useGame() {
     getPlayableCards,
   } = useGameStore();
 
+  const isConnected = connectionStatus === 'connected';
+
   const playCard = useCallback((card: Card) => {
-    if (!isMyTurn()) return;
+    if (!isConnected || !isMyTurn()) return;
     performAction({ type: 'play-card', card: cardToString(card) });
-  }, [performAction, isMyTurn]);
+  }, [isConnected, performAction, isMyTurn]);
 
   const bidTake = useCallback(() => {
-    if (!isMyTurn()) return;
+    if (!isConnected || !isMyTurn()) return;
     performAction({ type: 'bid-take' });
-  }, [performAction, isMyTurn]);
+  }, [isConnected, performAction, isMyTurn]);
 
   const bidPass = useCallback(() => {
-    if (!isMyTurn()) return;
+    if (!isConnected || !isMyTurn()) return;
     performAction({ type: 'bid-pass' });
-  }, [performAction, isMyTurn]);
+  }, [isConnected, performAction, isMyTurn]);
 
   const bidChoose = useCallback((suit: Suit) => {
-    if (!isMyTurn()) return;
+    if (!isConnected || !isMyTurn()) return;
     performAction({ type: 'bid-choose', suit });
-  }, [performAction, isMyTurn]);
+  }, [isConnected, performAction, isMyTurn]);
 
   return {
     gameState,
     localPlayer,
+    isConnected,
     playCard,
     bidTake,
     bidPass,

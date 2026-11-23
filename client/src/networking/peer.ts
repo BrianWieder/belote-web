@@ -6,7 +6,7 @@ export type PeerMessage =
   | { type: 'sync-seed'; seed: string; dealer: 0 | 1 }
   | { type: 'resume-game'; state: GameState }
   | { type: 'game-action'; action: GameAction; seq: number }
-  | { type: 'new-round' }
+  | { type: 'new-round'; seq?: number }
   | { type: 'resync-request' }
   | { type: 'game-state'; state: GameState };
 
@@ -112,10 +112,12 @@ export function createPeer(isInitiator: boolean, code: string): void {
   socket.on('signal', signalHandler);
 }
 
-export function sendPeerMessage(msg: PeerMessage): void {
+export function sendPeerMessage(msg: PeerMessage): boolean {
   if (peer && peerConnected) {
     peer.send(JSON.stringify(msg));
+    return true;
   }
+  return false;
 }
 
 export function destroyPeer(): void {

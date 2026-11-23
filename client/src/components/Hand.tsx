@@ -11,6 +11,7 @@ export function Hand() {
   const {
     gameState,
     localPlayer,
+    isConnected,
     playCard,
     playableCards,
     isMyTurn,
@@ -19,12 +20,13 @@ export function Hand() {
 
   const hand = gameState.hands[localPlayer];
   const isPlaying = gameState.phase === 'playing';
+  const canAct = isPlaying && isMyTurn && isConnected;
   const trumpSuit = gameState.trumpSuit;
 
   const playableSet = new Set(playableCards.map((c) => cardToString(c)));
 
   const handleCardClick = (card: CardType) => {
-    if (!isMyTurn || !isPlaying) return;
+    if (!canAct) return;
     if (!playableSet.has(cardToString(card))) return;
 
     playCard(card);
@@ -46,7 +48,7 @@ export function Hand() {
       <div className="flex flex-nowrap sm:flex-wrap justify-center sm:gap-2">
         {sorted.map((card, index) => {
           const key = cardToString(card);
-          const canPlay = isPlaying && isMyTurn && playableSet.has(key);
+          const canPlay = canAct && playableSet.has(key);
           const shouldDim = isPlaying && isMyTurn && !canPlay;
           const isTrump = Boolean(trumpSuit && card.suit === trumpSuit);
 

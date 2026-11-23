@@ -5,7 +5,7 @@ import type { Suit } from '../game/types';
 const ALL_SUITS: Suit[] = ['hearts', 'diamonds', 'clubs', 'spades'];
 
 export function BiddingUI() {
-  const { gameState, bidTake, bidPass, bidChoose, isMyTurn } = useGame();
+  const { gameState, bidTake, bidPass, bidChoose, isMyTurn, isConnected } = useGame();
   if (!gameState) return null;
 
   const isRound1 = gameState.phase === 'bidding-round1';
@@ -58,7 +58,8 @@ export function BiddingUI() {
                 type="button"
                 data-testid="bid-take"
                 onClick={bidTake}
-                className="btn-brass font-semibold py-2.5 px-7 rounded-xl cursor-pointer"
+                disabled={!isConnected}
+                className="btn-brass font-semibold py-2.5 px-7 rounded-xl cursor-pointer disabled:opacity-45 disabled:cursor-not-allowed"
               >
                 Take
               </button>
@@ -67,7 +68,8 @@ export function BiddingUI() {
                   type="button"
                   data-testid="bid-pass"
                   onClick={bidPass}
-                  className="btn-slate font-semibold py-2.5 px-7 rounded-xl cursor-pointer"
+                  disabled={!isConnected}
+                  className="btn-slate font-semibold py-2.5 px-7 rounded-xl cursor-pointer disabled:opacity-45 disabled:cursor-not-allowed"
                 >
                   Pass
                 </button>
@@ -83,7 +85,7 @@ export function BiddingUI() {
                     key={suit}
                     suit={suit}
                     onClick={() => bidChoose(suit)}
-                    disabled={trumpCard?.suit === suit}
+                    disabled={!isConnected || trumpCard?.suit === suit}
                     data-testid={`bid-suit-${suit}`}
                   />
                 ))}
@@ -92,7 +94,8 @@ export function BiddingUI() {
                 type="button"
                 data-testid="bid-pass-round2"
                 onClick={bidPass}
-                className="btn-slate font-semibold py-2 px-7 rounded-xl cursor-pointer text-sm"
+                disabled={!isConnected}
+                className="btn-slate font-semibold py-2 px-7 rounded-xl cursor-pointer text-sm disabled:opacity-45 disabled:cursor-not-allowed"
               >
                 Pass
               </button>
@@ -106,6 +109,7 @@ export function BiddingUI() {
                   key={suit}
                   suit={suit}
                   onClick={() => bidChoose(suit)}
+                  disabled={!isConnected}
                   data-testid={`bid-suit-${suit}`}
                 />
               ))}

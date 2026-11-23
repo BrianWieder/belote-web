@@ -101,16 +101,32 @@ describe('calculateRoundScore', () => {
   });
 
   it('applies dedans when taker ties', () => {
-    // Equal points means dedans for the taker
+    // Exact 81-81 tie: taker has 71 card pts + 10 last trick = 81; defender has 81 card pts.
+    // Equal points means dedans for the taker, and defender takes all 162 points.
+    const takerCards = [
+      c('J', 'hearts'), c('9', 'hearts'), c('A', 'hearts'), c('10', 'hearts'),
+      c('10', 'spades'), c('K', 'spades'), c('J', 'spades'),
+    ];
+    const defenderCards = [
+      c('A', 'spades'), c('A', 'clubs'), c('A', 'diamonds'),
+      c('10', 'clubs'), c('10', 'diamonds'),
+      c('K', 'hearts'), c('Q', 'hearts'),
+      c('K', 'clubs'), c('Q', 'clubs'), c('J', 'clubs'),
+      c('K', 'diamonds'), c('Q', 'diamonds'), c('J', 'diamonds'),
+      c('Q', 'spades'),
+    ];
     const score = calculateRoundScore(
-      [[c('A', 'hearts')], [c('A', 'spades')]],
+      [takerCards, defenderCards],
       0, 'hearts',
       [false, false], [false, false],
       0,
     );
-    // Player 0 has 11 + 10 last trick = 21, Player 1 has 11
-    // Not dedans since taker has more
-    expect(score.dedans).toBe(false);
+    expect(score.trickPoints[0]).toBe(71);
+    expect(score.trickPoints[1]).toBe(81);
+    expect(score.lastTrickBonus[0]).toBe(10);
+    expect(score.dedans).toBe(true);
+    expect(score.finalPoints[0]).toBe(0);
+    expect(score.finalPoints[1]).toBe(162);
   });
 
   it('belote/rebelote scores 20 when both are played and at least one trick is won, preserved on dedans', () => {
@@ -148,8 +164,8 @@ describe('calculateRoundScore', () => {
     expect(score.finalPoints[0]).toBe(0);
   });
 
-  it('last trick bonus goes to its actual winner even on dedans', () => {
-    // Taker (player 0) loses all card points but keeps the 10 for the last trick
+  it('defender receives all 162 points including last trick bonus on dedans', () => {
+    // Taker (player 0) won the last trick, but on dedans the defender gets all 162 points.
     const score = calculateRoundScore(
       [[c('7', 'spades')], [c('A', 'hearts'), c('J', 'hearts')]],
       0, 'hearts',
@@ -157,7 +173,31 @@ describe('calculateRoundScore', () => {
       0,
     );
     expect(score.dedans).toBe(true);
-    expect(score.finalPoints[0]).toBe(10);
-    expect(score.finalPoints[1]).toBe(152);
+    expect(score.finalPoints[0]).toBe(0);
+    expect(score.finalPoints[1]).toBe(162);
+  });
+
+  it('taker keeps only belote bonus (20) and loses last trick bonus on dedans', () => {
+    const score = calculateRoundScore(
+      [[c('7', 'spades')], [c('A', 'hearts'), c('J', 'hearts'), c('9', 'hearts')]],
+      0, 'hearts',
+      [true, false], [true, false],
+      0,
+    );
+    expect(score.dedans).toBe(true);
+    expect(score.finalPoints[0]).toBe(20);
+    expect(score.finalPoints[1]).toBe(162);
+  });
+
+  it('defender keeps their own belote bonus on top of 162 on dedans', () => {
+    const score = calculateRoundScore(
+      [[c('7', 'spades')], [c('A', 'hearts'), c('J', 'hearts')]],
+      0, 'hearts',
+      [false, true], [false, true],
+      0,
+    );
+    expect(score.dedans).toBe(true);
+    expect(score.finalPoints[0]).toBe(0);
+    expect(score.finalPoints[1]).toBe(182);
   });
 });
