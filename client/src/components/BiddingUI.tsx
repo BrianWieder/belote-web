@@ -1,4 +1,5 @@
 import { useGame } from '../hooks/useGame';
+import { useGameStore } from '../store/gameStore';
 import { Card, SuitButton } from './Card';
 import type { Suit } from '../game/types';
 
@@ -6,7 +7,10 @@ const ALL_SUITS: Suit[] = ['hearts', 'diamonds', 'clubs', 'spades'];
 
 export function BiddingUI() {
   const { gameState, bidTake, bidPass, bidChoose, isMyTurn, isConnected } = useGame();
+  const gameMode = useGameStore((s) => s.gameMode);
   if (!gameState) return null;
+
+  const oppName = gameMode === 'bot' ? 'Bot' : 'opponent';
 
   const isRound1 = gameState.phase === 'bidding-round1';
   const isRound2 = gameState.phase === 'bidding-round2';
@@ -35,7 +39,7 @@ export function BiddingUI() {
         <p className="text-xs sm:text-sm text-[#a4bba9] text-center">
           {isMyTurn
             ? 'All passed — you took the top card and 2 from the deck'
-            : 'All passed — opponent took the top card and 2 from the deck'}
+            : `All passed — ${oppName} took the top card and 2 from the deck`}
         </p>
       )}
 
@@ -122,10 +126,10 @@ export function BiddingUI() {
           className="text-sm text-[#a4bba9] text-center"
         >
           {isForced
-            ? 'Waiting for opponent to choose trump...'
+            ? `Waiting for ${oppName} to choose trump...`
             : jackForced
-              ? 'Jack turned up — opponent must take'
-              : 'Waiting for opponent to bid...'}
+              ? `Jack turned up — ${oppName} must take`
+              : `Waiting for ${oppName} to bid...`}
         </p>
       )}
     </div>

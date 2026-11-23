@@ -47,7 +47,11 @@ function withSentry(callback: (Sentry: SentryModule) => void): void {
   }
 }
 
-export function setGameContext(gameState: GameState | null, localPlayer: PlayerID): void {
+export function setGameContext(
+  gameState: GameState | null,
+  localPlayer: PlayerID,
+  gameMode: 'p2p' | 'bot' = 'p2p',
+): void {
   if (!gameState) return;
   withSentry((Sentry) => {
     Sentry.setContext('game', {
@@ -60,8 +64,9 @@ export function setGameContext(gameState: GameState | null, localPlayer: PlayerI
       sequenceNumber: gameState.sequenceNumber,
       gameScore: gameState.gameScore,
       roundNumber: gameState.roundScores.length + 1,
+      gameMode,
     });
-    Sentry.setTag('playerRole', localPlayer === 0 ? 'host' : 'guest');
+    Sentry.setTag('playerRole', gameMode === 'bot' ? 'solo' : localPlayer === 0 ? 'host' : 'guest');
     Sentry.setTag('gamePhase', gameState.phase);
   });
 }

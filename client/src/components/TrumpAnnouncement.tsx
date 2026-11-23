@@ -12,6 +12,7 @@ const DISPLAY_DURATION_MS = 1800;
 
 export function TrumpAnnouncement() {
   const localPlayer = useGameStore((s) => s.localPlayer);
+  const gameMode = useGameStore((s) => s.gameMode);
   const prefersReducedMotion = useReducedMotion();
   const [announcement, setAnnouncement] = useState<TrumpAnnouncementInfo | null>(null);
 
@@ -98,7 +99,7 @@ export function TrumpAnnouncement() {
             </div>
 
             <div className="mt-1 text-xs sm:text-sm text-[#a4bba9]">
-              Taken by {announcement.taker === localPlayer ? 'you' : 'opponent'}
+              Taken by {announcement.taker === localPlayer ? 'you' : gameMode === 'bot' ? 'Bot' : 'opponent'}
             </div>
           </motion.div>
         )}

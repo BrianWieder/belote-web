@@ -25,6 +25,7 @@ export function usePlayableCards(): Card[] {
 export function useGame() {
   const gameState = useGameStore((s) => s.gameState);
   const connectionStatus = useGameStore((s) => s.connectionStatus);
+  const gameMode = useGameStore((s) => s.gameMode);
   const localPlayer = useGameStore((s) => s.localPlayer);
   const roundReady = useGameStore((s) => s.roundReady);
   const rematchReady = useGameStore((s) => s.rematchReady);
@@ -33,7 +34,7 @@ export function useGame() {
   const requestRematch = useGameStore((s) => s.requestRematch);
   const isMyTurnFn = useGameStore((s) => s.isMyTurn);
 
-  const isConnected = connectionStatus === 'connected';
+  const isConnected = gameMode === 'bot' || connectionStatus === 'connected';
 
   const playCard = useCallback((card: Card) => {
     if (!isConnected || !isMyTurnFn()) return;

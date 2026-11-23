@@ -3,3 +3,4 @@ export * from './deck';
 export * from './scoring';
 export * from './validation';
 export * from './engine';
+export * from './bot';

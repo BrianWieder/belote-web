@@ -7,6 +7,7 @@ vi.mock('../../networking/peer', () => ({
 import { useGameStore } from '../gameStore';
 import { sendPeerMessage } from '../../networking/peer';
 import { createInitialState } from '../../game/engine';
+import { SAVED_GAME_STORAGE_KEY } from '../savedGame';
 import type { GameState, PlayerID, RoundScore } from '../../game/types';
 import type { Mock } from 'vitest';
 
@@ -62,6 +63,8 @@ describe('gameStore', () => {
       roomCode: null,
       isHost: false,
       localPlayer: 0,
+      gameMode: 'p2p',
+      botDifficulty: 'smart',
       roundReady: [false, false],
       rematchReady: [false, false],
       pendingRematchStart: null,
@@ -679,6 +682,97 @@ describe('gameStore', () => {
         type: 'game-state',
         state: useGameStore.getState().gameState,
       });
+    });
+  });
+
+  describe('solo bot mode', () => {
+    it('startBotGame initializes a local match without sending peer messages or overwriting saved P2P host game', () => {
+      const storeMap = new Map<string, string>();
+      const fakeStorage = {
+        getItem: (k: string) => storeMap.get(k) ?? null,
+        setItem: (k: string, v: string) => {
+          storeMap.set(k, v);
+        },
+        removeItem: (k: string) => {
+          storeMap.delete(k);
+        },
+        clear: () => storeMap.clear(),
+        key: () => null,
+        length: 0,
+      } as Storage;
+
+      const existingSnapshot = JSON.stringify({ sentinel: 'p2p-saved-match' });
+      fakeStorage.setItem(SAVED_GAME_STORAGE_KEY, existingSnapshot);
+      vi.stubGlobal('window', { localStorage: fakeStorage });
+
+      try {
+        useGameStore.getState().startBotGame('casual');
+        const state = useGameStore.getState();
+
+        expect(state.gameMode).toBe('bot');
+        expect(state.botDifficulty).toBe('casual');
+        expect(state.localPlayer).toBe(0);
+        expect(state.isHost).toBe(false);
+        expect(state.connectionStatus).toBe('connected');
+        expect(state.gameState).not.toBeNull();
+        expect(state.hostGameSaved).toBe(false);
+        expect(mockedSend).not.toHaveBeenCalled();
+
+        // Human or bot action in bot mode sends no peer messages and keeps saved P2P game untouched.
+        const initialDealer = state.gameState!.dealer;
+        if (state.gameState!.currentPlayer === 0) {
+          useGameStore.getState().performAction({ type: 'bid-take' });
+        } else {
+          useGameStore.getState().performBotAction({ type: 'bid-take' });
+        }
+        expect(useGameStore.getState().gameState!.phase).toBe('playing');
+        expect(mockedSend).not.toHaveBeenCalled();
+        expect(fakeStorage.getItem(SAVED_GAME_STORAGE_KEY)).toBe(existingSnapshot);
+
+        // Stale P2P initGame/hydrateGame/receiveAction calls cannot clobber an active bot game.
+        const botSeed = useGameStore.getState().gameState!.seed;
+        useGameStore.getState().initGame('stale-p2p-seed', 0);
+        expect(useGameStore.getState().gameMode).toBe('bot');
+        expect(useGameStore.getState().gameState!.seed).toBe(botSeed);
+
+        // Rematch alternates dealer immediately.
+        useGameStore.getState().startBotGame('casual');
+        expect(useGameStore.getState().gameState!.dealer).toBe(initialDealer === 0 ? 1 : 0);
+        expect(mockedSend).not.toHaveBeenCalled();
+        expect(fakeStorage.getItem(SAVED_GAME_STORAGE_KEY)).toBe(existingSnapshot);
+      } finally {
+        vi.unstubAllGlobals();
+      }
+    });
+
+    it('nextRound and requestRematch advance immediately in bot mode without waiting for remote peer', () => {
+      useGameStore.getState().startBotGame('smart', 1);
+      const gs = structuredClone(useGameStore.getState().gameState!);
+      gs.phase = 'round-over';
+      const prevSeq = gs.sequenceNumber;
+      useGameStore.setState({ gameState: gs });
+
+      useGameStore.getState().nextRound();
+      const updated = useGameStore.getState().gameState!;
+      expect(updated.phase).toBe('bidding-round1');
+      expect(updated.dealer).toBe(0);
+      expect(updated.sequenceNumber).toBe(prevSeq + 1);
+      expect(useGameStore.getState().roundReady).toEqual([false, false]);
+      expect(mockedSend).not.toHaveBeenCalled();
+
+      // Rematch from game-over in bot mode starts a fresh match with alternated dealer in one click.
+      const over = structuredClone(updated);
+      over.phase = 'game-over';
+      const overSeed = over.seed;
+      useGameStore.setState({ gameState: over });
+
+      useGameStore.getState().requestRematch();
+      const rematched = useGameStore.getState().gameState!;
+      expect(rematched.phase).toBe('bidding-round1');
+      expect(rematched.seed).not.toBe(overSeed);
+      expect(rematched.dealer).toBe(1);
+      expect(useGameStore.getState().rematchReady).toEqual([false, false]);
+      expect(mockedSend).not.toHaveBeenCalled();
     });
   });
 });

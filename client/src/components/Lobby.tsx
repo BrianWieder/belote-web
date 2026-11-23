@@ -66,6 +66,9 @@ export function Lobby({ peerActions }: LobbyProps) {
   const roomCode = useGameStore((s) => s.roomCode);
   const connectionError = useGameStore((s) => s.connectionError);
   const pendingResumeState = useGameStore((s) => s.pendingResumeState);
+  const botDifficulty = useGameStore((s) => s.botDifficulty);
+  const setBotDifficulty = useGameStore((s) => s.setBotDifficulty);
+  const startBotGame = useGameStore((s) => s.startBotGame);
   const loading = loadingAction !== null;
 
   useEffect(() => {
@@ -153,6 +156,16 @@ export function Lobby({ peerActions }: LobbyProps) {
     setLoadingAction(null);
     resetCopyFeedback();
     cancelConnection();
+  };
+
+  const handleStartBotGame = () => {
+    retryGenRef.current += 1;
+    setLoadingAction(null);
+    setError('');
+    resetCopyFeedback();
+    // Retire any pending multiplayer peer/signaling session before entering solo mode.
+    cancelConnection();
+    startBotGame(botDifficulty);
   };
 
   const handleCreate = async () => {
@@ -546,6 +559,59 @@ export function Lobby({ peerActions }: LobbyProps) {
               {loadingAction === 'join' ? 'Joining…' : 'Join table'}
             </button>
           </form>
+
+          <div className="relative my-5 flex items-center">
+            <div className="flex-grow border-t border-[#efe9dc]/12" />
+            <span className="mx-3 text-xs text-[#a4bba9]">or play solo</span>
+            <div className="flex-grow border-t border-[#efe9dc]/12" />
+          </div>
+
+          <div className="flex items-center gap-2.5">
+            <div
+              role="group"
+              aria-label="Bot difficulty"
+              className="tapis-ring rounded-xl p-1 flex items-center shrink-0"
+            >
+              <button
+                type="button"
+                data-testid="bot-difficulty-casual"
+                aria-pressed={botDifficulty === 'casual'}
+                onClick={() => setBotDifficulty('casual')}
+                disabled={loading}
+                className={`px-2.5 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer disabled:opacity-40 ${
+                  botDifficulty === 'casual'
+                    ? 'bg-[#d4a84b]/20 text-[#e3ba62] border border-[#d4a84b]/45'
+                    : 'text-[#a4bba9] hover:text-[#efe9dc] border border-transparent'
+                }`}
+              >
+                Casual
+              </button>
+              <button
+                type="button"
+                data-testid="bot-difficulty-smart"
+                aria-pressed={botDifficulty === 'smart'}
+                onClick={() => setBotDifficulty('smart')}
+                disabled={loading}
+                className={`px-2.5 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer disabled:opacity-40 ${
+                  botDifficulty === 'smart'
+                    ? 'bg-[#d4a84b]/20 text-[#e3ba62] border border-[#d4a84b]/45'
+                    : 'text-[#a4bba9] hover:text-[#efe9dc] border border-transparent'
+                }`}
+              >
+                Smart
+              </button>
+            </div>
+            <button
+              id="play-vs-bot-button"
+              data-testid="play-vs-bot"
+              type="button"
+              onClick={handleStartBotGame}
+              disabled={loading}
+              className="btn-slate flex-1 font-semibold text-sm sm:text-base py-3 px-4 rounded-xl border-[#d4a84b]/40 text-[#e3ba62] cursor-pointer disabled:opacity-40"
+            >
+              Play vs. Bot
+            </button>
+          </div>
 
           {error && (
             <p
