@@ -9,6 +9,7 @@ client/test-results/
 client/playwright-report/
 test-results/
 playwright-report/
+coverage/
 
 # Environment
 .env
