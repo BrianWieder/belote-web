@@ -9,13 +9,14 @@ import {
   SAVED_GAME_STORAGE_KEY,
   type SavedGameSnapshot,
 } from '../store/savedGame';
+import { MAX_PLAYER_NAME_LENGTH } from '../store/playerName';
 import {
   buildInviteUrl,
   parseInviteCode,
   stripInviteParam,
 } from '../networking/inviteLink';
 import { Card } from './Card';
-import type { Card as CardType, GameState } from '../game/types';
+import { TARGET_SCORES, type Card as CardType, type GameState } from '../game/types';
 
 function formatJoinError(err: unknown): string {
   if (err instanceof Error && err.message) {
@@ -53,6 +54,7 @@ export function Lobby({ peerActions }: LobbyProps) {
   const [copyCodeStatus, setCopyCodeStatus] = useState<'idle' | 'copied' | 'failed'>('idle');
   const [copyLinkStatus, setCopyLinkStatus] = useState<'idle' | 'copied' | 'failed'>('idle');
   const [savedGame, setSavedGame] = useState<SavedGameSnapshot | null>(() => loadSavedGame());
+  const [rulesOpen, setRulesOpen] = useState(false);
   const prefersReducedMotion = useReducedMotion();
 
   const copyCodeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -69,6 +71,11 @@ export function Lobby({ peerActions }: LobbyProps) {
   const botDifficulty = useGameStore((s) => s.botDifficulty);
   const setBotDifficulty = useGameStore((s) => s.setBotDifficulty);
   const startBotGame = useGameStore((s) => s.startBotGame);
+  const matchOptions = useGameStore((s) => s.matchOptions);
+  const setMatchOptions = useGameStore((s) => s.setMatchOptions);
+  const localPlayerName = useGameStore((s) => s.localPlayerName);
+  const setLocalPlayerName = useGameStore((s) => s.setLocalPlayerName);
+  const [nameInput, setNameInput] = useState(localPlayerName);
   const loading = loadingAction !== null;
 
   useEffect(() => {
@@ -283,6 +290,18 @@ export function Lobby({ peerActions }: LobbyProps) {
                 : 'Share this code or invite link to deal the first hand.'}
             </p>
 
+            {!pendingResumeState && (matchOptions.targetScore !== 1000 || matchOptions.capotEnabled) && (
+              <div className="mb-4 inline-flex items-center gap-1.5 rounded-full border border-[#d4a84b]/35 bg-[#d4a84b]/10 px-3 py-1 text-xs text-[#e3ba62] tabular-nums">
+                <span>First to {matchOptions.targetScore.toLocaleString()}</span>
+                {matchOptions.capotEnabled && (
+                  <>
+                    <span className="text-[#a4bba9]/70">·</span>
+                    <span>Capot (252 pts)</span>
+                  </>
+                )}
+              </div>
+            )}
+
             <div className="tapis-ring rounded-xl px-5 py-4 mb-3 flex items-center justify-center">
               <div
                 data-testid="room-code"
@@ -459,6 +478,36 @@ export function Lobby({ peerActions }: LobbyProps) {
           aria-label="Start or join a game"
           className="ardoise-panel w-full rounded-2xl p-6 sm:p-7"
         >
+          {/* Optional display name */}
+          <div className="mb-4 flex items-center gap-3">
+            <label
+              htmlFor="player-name-input"
+              className="text-xs font-medium text-[#a4bba9] shrink-0"
+            >
+              Your name
+            </label>
+            <input
+              id="player-name-input"
+              data-testid="player-name-input"
+              type="text"
+              autoComplete="nickname"
+              maxLength={MAX_PLAYER_NAME_LENGTH}
+              value={nameInput}
+              onChange={(e) => {
+                const next = e.target.value.slice(0, MAX_PLAYER_NAME_LENGTH);
+                setNameInput(next);
+                setLocalPlayerName(next);
+              }}
+              onBlur={() => {
+                const trimmed = nameInput.trim().slice(0, MAX_PLAYER_NAME_LENGTH);
+                setNameInput(trimmed);
+                setLocalPlayerName(trimmed);
+              }}
+              placeholder="Optional"
+              className="flex-1 min-w-0 tapis-ring rounded-xl px-3 py-2 text-sm text-[#efe9dc] placeholder:text-[#73907c]"
+            />
+          </div>
+
           <button
             id="create-room-button"
             data-testid="create-room"
@@ -469,6 +518,103 @@ export function Lobby({ peerActions }: LobbyProps) {
           >
             {loadingAction === 'create' ? 'Opening table…' : 'Create a table'}
           </button>
+
+          {/* Collapsible match settings (default collapsed) */}
+          <div className="mt-2.5">
+            <button
+              type="button"
+              data-testid="table-rules-toggle"
+              aria-expanded={rulesOpen}
+              onClick={() => setRulesOpen((open) => !open)}
+              className="w-full flex items-center justify-between rounded-xl px-3 py-2 text-xs text-[#a4bba9] hover:text-[#efe9dc] hover:bg-[#efe9dc]/5 transition-colors cursor-pointer"
+            >
+              <span className="font-medium">Table rules</span>
+              <span className="flex items-center gap-1.5 text-[#d6dfd8] tabular-nums">
+                <span>
+                  First to {matchOptions.targetScore.toLocaleString()}
+                  {matchOptions.capotEnabled ? ' · Capot' : ''}
+                </span>
+                <svg
+                  aria-hidden="true"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                  className={`w-4 h-4 text-[#a4bba9] transition-transform duration-150 ${
+                    rulesOpen ? 'rotate-180' : ''
+                  }`}
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+              </span>
+            </button>
+
+            {rulesOpen && (
+              <div
+                data-testid="table-rules-panel"
+                className="mt-2 tapis-ring rounded-xl p-3.5 space-y-3.5 text-left"
+              >
+                <div>
+                  <div className="text-xs font-medium text-[#efe9dc] mb-2">
+                    Target score
+                  </div>
+                  <div className="grid grid-cols-3 gap-2" role="group" aria-label="Target score">
+                    {TARGET_SCORES.map((score) => {
+                      const active = matchOptions.targetScore === score;
+                      return (
+                        <button
+                          key={score}
+                          type="button"
+                          data-testid={`target-score-${score}`}
+                          aria-pressed={active}
+                          onClick={() => setMatchOptions({ targetScore: score })}
+                          className={`rounded-lg py-1.5 text-xs font-semibold tabular-nums transition-colors cursor-pointer ${
+                            active
+                              ? 'bg-[#d4a84b]/22 border border-[#d4a84b]/70 text-[#e3ba62]'
+                              : 'btn-slate border-[#efe9dc]/14 text-[#a4bba9]'
+                          }`}
+                        >
+                          {score.toLocaleString()}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between gap-3 pt-1 border-t border-[#efe9dc]/10">
+                  <div>
+                    <div className="text-xs font-medium text-[#efe9dc]">
+                      Capot (252 pts)
+                    </div>
+                    <div className="text-[11px] text-[#a4bba9] leading-snug">
+                      Win all 16 tricks for 252 points.
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    data-testid="capot-toggle"
+                    aria-checked={matchOptions.capotEnabled}
+                    aria-label="Enable Capot (252 points)"
+                    onClick={() => setMatchOptions({ capotEnabled: !matchOptions.capotEnabled })}
+                    className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border transition-colors cursor-pointer ${
+                      matchOptions.capotEnabled
+                        ? 'bg-[#d4a84b] border-[#e3ba62]'
+                        : 'bg-[#0b1f16]/80 border-[#efe9dc]/25'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 rounded-full bg-[#faf6ec] shadow-xs transition-transform ${
+                        matchOptions.capotEnabled ? 'translate-x-5.5' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
 
           {savedGame && (
             <div
@@ -640,7 +786,9 @@ export function Lobby({ peerActions }: LobbyProps) {
             </p>
             <p>
               <strong className="text-[#efe9dc] font-semibold">Scoring:</strong>{' '}
-              152 card points + 10 for the last trick (+20 for King &amp; Queen of trump). If the taker fails to outscore the defender, the defender wins all 162 points (<em>dedans</em>). First to 1,000 wins.
+              152 card points + 10 for the last trick (+20 for King &amp; Queen of trump). If the taker fails to outscore the defender, the defender wins all 162 points (<em>dedans</em>).
+              {matchOptions.capotEnabled ? ' Winning all 16 tricks (capot) awards 252 points.' : ''}{' '}
+              First to {matchOptions.targetScore.toLocaleString()} wins.
             </p>
           </div>
         </details>

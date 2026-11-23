@@ -1,4 +1,5 @@
-import type { Card, GameState, Phase, PlayerID, Rank, Suit } from '../game/types';
+import type { Card, GameState, MatchOptions, Phase, PlayerID, Rank, Suit, TargetScore } from '../game/types';
+import { DEFAULT_MATCH_OPTIONS, TARGET_SCORES } from '../game/types';
 
 export const SAVED_GAME_STORAGE_KEY = 'belote-web:saved-game:v1';
 
@@ -76,6 +77,40 @@ function isNumberPair(value: unknown): value is [number, number] {
   );
 }
 
+const VALID_TARGET_SCORES = new Set<number>(TARGET_SCORES);
+
+export function isValidMatchOptions(value: unknown): value is MatchOptions {
+  if (!isRecord(value)) return false;
+  return (
+    typeof value.targetScore === 'number' &&
+    VALID_TARGET_SCORES.has(value.targetScore) &&
+    typeof value.capotEnabled === 'boolean'
+  );
+}
+
+export function sanitizeMatchOptions(value: unknown): MatchOptions {
+  if (!isRecord(value)) return { ...DEFAULT_MATCH_OPTIONS };
+  const targetScore: TargetScore =
+    typeof value.targetScore === 'number' && VALID_TARGET_SCORES.has(value.targetScore)
+      ? (value.targetScore as TargetScore)
+      : DEFAULT_MATCH_OPTIONS.targetScore;
+  const capotEnabled =
+    typeof value.capotEnabled === 'boolean'
+      ? value.capotEnabled
+      : DEFAULT_MATCH_OPTIONS.capotEnabled;
+  return { targetScore, capotEnabled };
+}
+
+export function normalizeGameState(state: GameState): GameState {
+  if (isValidMatchOptions((state as Partial<GameState>).options)) {
+    return state;
+  }
+  return {
+    ...state,
+    options: sanitizeMatchOptions((state as Partial<GameState>).options),
+  };
+}
+
 function isValidRoundScore(value: unknown): boolean {
   if (!isRecord(value)) return false;
   return (
@@ -83,6 +118,7 @@ function isValidRoundScore(value: unknown): boolean {
     isNumberPair(value.beloteBonus) &&
     isNumberPair(value.lastTrickBonus) &&
     typeof value.dedans === 'boolean' &&
+    (value.capot === undefined || typeof value.capot === 'boolean') &&
     isPlayerID(value.taker) &&
     typeof value.trumpSuit === 'string' &&
     VALID_SUITS.has(value.trumpSuit as Suit) &&
@@ -152,6 +188,9 @@ export function isValidGameState(value: unknown): value is GameState {
   if (!isNumberPair(value.gameScore)) {
     return false;
   }
+  if (value.options !== undefined && !isValidMatchOptions(value.options)) {
+    return false;
+  }
   if (typeof value.sequenceNumber !== 'number' || !Number.isInteger(value.sequenceNumber) || value.sequenceNumber < 0) {
     return false;
   }
@@ -211,7 +250,7 @@ export function loadSavedGame(storage: Storage | null = getDefaultStorage()): Sa
     return {
       version: 1,
       savedAt: parsed.savedAt,
-      gameState: parsed.gameState,
+      gameState: normalizeGameState(parsed.gameState),
     };
   } catch {
     try {

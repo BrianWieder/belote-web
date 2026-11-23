@@ -1,9 +1,11 @@
 import { useEffect, useRef } from 'react';
 import { useFocusTrap } from '../hooks/useFocusTrap';
+import { DEFAULT_MATCH_OPTIONS, type MatchOptions } from '../game/types';
 
 interface RulesModalProps {
   open: boolean;
   onClose: () => void;
+  options?: MatchOptions;
 }
 
 interface RankRow {
@@ -24,7 +26,11 @@ const CARD_VALUES: readonly RankRow[] = [
   { trumpRank: '7', trumpPoints: 0, nonTrumpRank: '7', nonTrumpPoints: 0 },
 ];
 
-export function RulesModal({ open, onClose }: RulesModalProps) {
+export function RulesModal({
+  open,
+  onClose,
+  options = DEFAULT_MATCH_OPTIONS,
+}: RulesModalProps) {
   const panelRef = useRef<HTMLDivElement>(null);
 
   useFocusTrap(panelRef, open);
@@ -233,9 +239,18 @@ export function RulesModal({ open, onClose }: RulesModalProps) {
                 the defender, the defender takes all 162 points (including the 10-point last-trick
                 bonus; only Belote &amp; Rebelote stays with who declared it).
               </li>
+              {options.capotEnabled && (
+                <li>
+                  <strong className="text-[#efe9dc]">Capot (252 pts):</strong> Winning all 16
+                  tricks awards 252 points (152 card points + 100 capot bonus replacing the
+                  last-trick bonus, plus 20 if Belote &amp; Rebelote was declared by the capot
+                  winner).
+                </li>
+              )}
               <li>
                 <strong className="text-[#efe9dc]">Match:</strong> First to{' '}
-                <strong className="text-[#e3ba62]">1,000</strong> points wins.
+                <strong className="text-[#e3ba62]">{options.targetScore.toLocaleString()}</strong>{' '}
+                points wins.
               </li>
             </ul>
           </section>

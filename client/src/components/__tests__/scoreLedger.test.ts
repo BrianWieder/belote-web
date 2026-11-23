@@ -50,6 +50,7 @@ describe('buildScoreLedger', () => {
           taker: 0,
           takerLabel: 'You',
           dedans: false,
+          capot: false,
           myBelote: false,
           oppBelote: false,
           beloteOwner: null,
@@ -64,6 +65,7 @@ describe('buildScoreLedger', () => {
           taker: 1,
           takerLabel: 'Opp',
           dedans: false,
+          capot: false,
           myBelote: false,
           oppBelote: false,
           beloteOwner: null,
@@ -111,8 +113,9 @@ describe('buildScoreLedger', () => {
         trumpSuit: 'spades',
         taker: 1,
         dedans: true,
+        capot: true,
         beloteBonus: [0, 0],
-        finalPoints: [162, 0],
+        finalPoints: [252, 0],
       }),
     ];
 
@@ -125,6 +128,7 @@ describe('buildScoreLedger', () => {
     expect(ledger.rows[0]).toMatchObject({
       roundNumber: 1,
       dedans: true,
+      capot: false,
       myBelote: true,
       oppBelote: false,
       beloteOwner: 'you',
@@ -135,6 +139,7 @@ describe('buildScoreLedger', () => {
     expect(ledger.rows[1]).toMatchObject({
       roundNumber: 2,
       dedans: false,
+      capot: false,
       myBelote: false,
       oppBelote: true,
       beloteOwner: 'opp',
@@ -145,10 +150,11 @@ describe('buildScoreLedger', () => {
     expect(ledger.rows[2]).toMatchObject({
       roundNumber: 3,
       dedans: true,
+      capot: true,
       myBelote: false,
       oppBelote: false,
       beloteOwner: null,
-      myCumulative: 242,
+      myCumulative: 332,
       oppCumulative: 284,
     });
   });

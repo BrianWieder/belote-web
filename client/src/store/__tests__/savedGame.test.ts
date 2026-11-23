@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { createInitialState, applyAction } from '../../game/engine';
-import { cardToString } from '../../game/types';
+import { cardToString, DEFAULT_MATCH_OPTIONS } from '../../game/types';
 import { getPlayableCards } from '../../game/validation';
 import {
   SAVED_GAME_STORAGE_KEY,
@@ -139,5 +139,48 @@ describe('savedGame persistence', () => {
     expect(formatSavedAt(now - 12 * 60_000, now)).toBe('12m ago');
     expect(formatSavedAt(now - 3 * 3_600_000, now)).toBe('3h ago');
     expect(formatSavedAt(now - 2 * 86_400_000, now)).toBe('2d ago');
+  });
+
+  it('validates and hydrates legacy snapshots saved without options', () => {
+    const storage = createMemoryStorage();
+    const initial = createInitialState('legacy-seed', 0);
+    const legacyState: Record<string, unknown> = { ...initial };
+    delete legacyState.options;
+
+    expect(isValidResumableGameState(legacyState)).toBe(true);
+
+    storage.setItem(
+      SAVED_GAME_STORAGE_KEY,
+      JSON.stringify({ version: 1, savedAt: Date.now(), gameState: legacyState }),
+    );
+    const loaded = loadSavedGame(storage);
+    expect(loaded).not.toBeNull();
+    expect(loaded!.gameState.options).toEqual(DEFAULT_MATCH_OPTIONS);
+  });
+
+  it('round-trips custom match options and rejects malformed options', () => {
+    const storage = createMemoryStorage();
+    const custom = createInitialState('custom-opts-seed', 0, {
+      targetScore: 500,
+      capotEnabled: true,
+    });
+    saveHostGame(custom, storage);
+
+    const loaded = loadSavedGame(storage);
+    expect(loaded).not.toBeNull();
+    expect(loaded!.gameState.options).toEqual({ targetScore: 500, capotEnabled: true });
+
+    expect(
+      isValidResumableGameState({
+        ...custom,
+        options: { targetScore: 750, capotEnabled: true },
+      }),
+    ).toBe(false);
+    expect(
+      isValidResumableGameState({
+        ...custom,
+        options: { targetScore: 500, capotEnabled: 'yes' },
+      }),
+    ).toBe(false);
   });
 });

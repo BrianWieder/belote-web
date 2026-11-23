@@ -55,6 +55,8 @@ export function usePeer() {
   const receiveRematchStart = useGameStore((s) => s.receiveRematchStart);
   const sendFullState = useGameStore((s) => s.sendFullState);
   const receiveGameState = useGameStore((s) => s.receiveGameState);
+  const receivePlayerInfo = useGameStore((s) => s.receivePlayerInfo);
+  const receiveReaction = useGameStore((s) => s.receiveReaction);
 
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const iceFallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -543,13 +545,19 @@ export function usePeer() {
           receiveRematchReady();
           break;
         case 'rematch-start':
-          receiveRematchStart(msg.seed, msg.dealer);
+          receiveRematchStart(msg.seed, msg.dealer, msg.options);
           break;
         case 'resync-request':
           sendFullState();
           break;
         case 'game-state':
           receiveGameState(msg.state);
+          break;
+        case 'player-info':
+          receivePlayerInfo(msg.name);
+          break;
+        case 'reaction':
+          receiveReaction(msg.id);
           break;
       }
     };
@@ -695,6 +703,7 @@ export function usePeer() {
         if (isPeerConnected()) {
           setConnectionError(null);
           setConnectionStatus('connected');
+          useGameStore.getState().sendPlayerInfo();
           if (didOverflow) {
             // Queue hit memory/count cap while waiting for confirmation: request an
             // authoritative full-state resync instead of silently dropping ordered actions.
@@ -892,7 +901,7 @@ export function usePeer() {
       switch (msg.type) {
         case 'sync-seed': {
           handleGuestInitialState(() => {
-            initGame(msg.seed, msg.dealer);
+            initGame(msg.seed, msg.dealer, msg.options);
           });
           break;
         }
@@ -909,6 +918,8 @@ export function usePeer() {
         case 'rematch-start':
         case 'resync-request':
         case 'game-state':
+        case 'player-info':
+        case 'reaction':
           if (pendingInitialGuestConfirmRef.current) {
             if (!queuedGuestOverflowedRef.current) {
               const serializedBytes = JSON.stringify(msg).length * 2;
@@ -1082,6 +1093,7 @@ export function usePeer() {
               setConnectionStatus('connected');
               provisionalInitialResumeRef.current = resumed;
               store.hydrateGame(resumed);
+              store.sendPlayerInfo();
             } else {
               // Allow tests/debugging to pin a specific deck via ?seed= in the URL.
               const seedOverride = new URLSearchParams(window.location.search)
@@ -1093,7 +1105,8 @@ export function usePeer() {
                   ? crypto.randomUUID()
                   : Math.random().toString(36).substring(2));
               const dealer: 0 | 1 = 0;
-              if (!sendPeerMessage({ type: 'sync-seed', seed, dealer })) {
+              const options = store.matchOptions;
+              if (!sendPeerMessage({ type: 'sync-seed', seed, dealer, options })) {
                 destroyPeer();
                 setConnectionError(
                   "Couldn't send the opening deal to your opponent. Please try again.",
@@ -1103,7 +1116,8 @@ export function usePeer() {
               }
               setConnectionStatus('connected');
               provisionalInitialResumeRef.current = null;
-              store.initGame(seed, dealer);
+              store.initGame(seed, dealer, options);
+              store.sendPlayerInfo();
             }
           } else {
             // Guest stays in 'connecting' until sync-seed / resume-game initializes
@@ -1126,6 +1140,7 @@ export function usePeer() {
           } else {
             store.requestResync();
           }
+          store.sendPlayerInfo();
         }
       } else if (status === 'disconnected') {
         const { gameState } = useGameStore.getState();
@@ -1438,6 +1453,8 @@ export function usePeer() {
     receiveRematchStart,
     sendFullState,
     receiveGameState,
+    receivePlayerInfo,
+    receiveReaction,
   ]);
 
   const hostGame = useCallback(async () => {

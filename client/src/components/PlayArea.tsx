@@ -9,6 +9,7 @@ import type { PlayerID } from '../game/types';
 export function PlayArea() {
   const { gameState, localPlayer } = useGame();
   const gameMode = useGameStore((s) => s.gameMode);
+  const playerNames = useGameStore((s) => s.playerNames);
   const prefersReducedMotion = useReducedMotion();
   const [peekTrickCount, setPeekTrickCount] = useState<number | null>(null);
   const peekContainerRef = useRef<HTMLDivElement>(null);
@@ -58,9 +59,12 @@ export function PlayArea() {
   if (!gameState || gameState.phase !== 'playing') return null;
 
   const isBot = gameMode === 'bot';
-  const oppShort = isBot ? 'Bot' : 'Opp';
-  const oppLabel = isBot ? 'Bot' : 'Opponent';
   const opponent: PlayerID = localPlayer === 0 ? 1 : 0;
+  const myName = playerNames[localPlayer] ?? 'You';
+  const myLowerName = playerNames[localPlayer] ?? 'you';
+  const oppShort = isBot ? 'Bot' : (playerNames[opponent] ?? 'Opp');
+  const oppLabel = isBot ? 'Bot' : (playerNames[opponent] ?? 'Opponent');
+  const oppLowerName = isBot ? 'Bot' : (playerNames[opponent] ?? 'opponent');
   const trick = gameState.currentTrick;
 
   // Keep the resolved trick visible on the baize until the next lead is played.
@@ -125,8 +129,8 @@ export function PlayArea() {
               />
             </span>
             <div className="flex flex-col leading-none">
-              <span className="text-[9px] tall-sm:text-[10px] uppercase tracking-[0.14em] font-semibold text-[#e3ba62]">
-                Trump{gameState.taker !== null ? ` · ${gameState.taker === localPlayer ? 'You' : oppShort}` : ''}
+              <span className="text-[9px] tall-sm:text-[10px] uppercase tracking-[0.14em] font-semibold text-[#e3ba62] truncate max-w-[9rem]">
+                Trump{gameState.taker !== null ? ` · ${gameState.taker === localPlayer ? myName : oppShort}` : ''}
               </span>
               <span className="font-display text-sm tall-sm:text-base ultra-short:text-xs font-semibold text-[#efe9dc] mt-0.5">
                 {SUIT_NAMES[trumpSuit]}
@@ -187,7 +191,7 @@ export function PlayArea() {
                       : 'text-[#a4bba9]'
                   }
                 >
-                  Won by {lastTrickWinner === localPlayer ? 'you' : isBot ? 'Bot' : 'opponent'}
+                  Won by {lastTrickWinner === localPlayer ? myLowerName : oppLowerName}
                 </span>
               </div>
               <button
@@ -231,7 +235,7 @@ export function PlayArea() {
 
               <div className="flex flex-col items-center gap-1">
                 <span className="text-[10px] text-[#a4bba9]">
-                  You{lastTrick.leader === localPlayer ? ' · Led' : ''}
+                  {myName}{lastTrick.leader === localPlayer ? ' · Led' : ''}
                 </span>
                 <div
                   className={
@@ -268,7 +272,7 @@ export function PlayArea() {
       >
         {/* Opponent's card */}
         <div className="flex flex-col items-center gap-1">
-          <span className="text-[11px] text-[#a4bba9]">{oppLabel}</span>
+          <span className="text-[11px] text-[#a4bba9] truncate max-w-[7rem]">{oppLabel}</span>
           <div
             className={`-translate-y-0.5 -rotate-2 transition-opacity ${
               showingLastTrick && winner !== opponent ? 'opacity-45' : ''
@@ -317,7 +321,7 @@ export function PlayArea() {
               slotPlaceholder(!showingLastTrick && isMyTurn, !showingLastTrick && isMyTurn ? 'Play card' : '')
             )}
           </div>
-          <span className="text-[11px] text-[#a4bba9]">You</span>
+          <span className="text-[11px] text-[#a4bba9] truncate max-w-[7rem]">{myName}</span>
         </div>
       </div>
 
@@ -326,7 +330,7 @@ export function PlayArea() {
         {showingLastTrick ? (
           <div className="text-center">
             <span className="text-[#a4bba9]">
-              Last trick won by {winner === localPlayer ? 'you' : isBot ? 'Bot' : 'opponent'}.{' '}
+              Last trick won by {winner === localPlayer ? myLowerName : oppLowerName}.{' '}
             </span>
             <span
               className={`font-semibold ${
@@ -347,7 +351,9 @@ export function PlayArea() {
         )}
 
         <div className="flex items-center gap-4 text-[11px] text-[#73907c] tabular-nums">
-          <span>Your tricks: {gameState.tricksWon[localPlayer].length / 2}</span>
+          <span>
+            {playerNames[localPlayer] ? playerNames[localPlayer] : 'Your tricks'}: {gameState.tricksWon[localPlayer].length / 2}
+          </span>
           <span>{oppLabel}: {gameState.tricksWon[opponent].length / 2}</span>
         </div>
       </div>

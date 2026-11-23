@@ -7,6 +7,8 @@ vi.mock('../../networking/peer', () => ({
 import { useGameStore } from '../gameStore';
 import { sendPeerMessage } from '../../networking/peer';
 import { createInitialState } from '../../game/engine';
+import { DEFAULT_MATCH_OPTIONS } from '../../game/types';
+import { REACTION_COOLDOWN_MS } from '../../game/reactions';
 import { SAVED_GAME_STORAGE_KEY } from '../savedGame';
 import type { GameState, PlayerID, RoundScore } from '../../game/types';
 import type { Mock } from 'vitest';
@@ -65,6 +67,12 @@ describe('gameStore', () => {
       localPlayer: 0,
       gameMode: 'p2p',
       botDifficulty: 'smart',
+      matchOptions: { ...DEFAULT_MATCH_OPTIONS },
+      localPlayerName: '',
+      playerNames: [null, null],
+      activeReactions: [null, null],
+      lastReactionSentAt: 0,
+      lastRemoteReactionAt: 0,
       roundReady: [false, false],
       rematchReady: [false, false],
       pendingRematchStart: null,
@@ -510,6 +518,7 @@ describe('gameStore', () => {
         type: 'rematch-start',
         seed: gameState!.seed,
         dealer: 1,
+        options: DEFAULT_MATCH_OPTIONS,
       });
     });
 
@@ -535,6 +544,7 @@ describe('gameStore', () => {
         type: 'rematch-start',
         seed: gameState!.seed,
         dealer: 0,
+        options: DEFAULT_MATCH_OPTIONS,
       });
     });
 
@@ -628,6 +638,7 @@ describe('gameStore', () => {
         previousSeed: 'old-match-seed',
         seed: newMatch.seed,
         dealer: 1,
+        options: DEFAULT_MATCH_OPTIONS,
       });
 
       // Reconnect triggers sendFullState on host -> replays rematch-start BEFORE game-state
@@ -637,6 +648,7 @@ describe('gameStore', () => {
         type: 'rematch-start',
         seed: newMatch.seed,
         dealer: 1,
+        options: DEFAULT_MATCH_OPTIONS,
       });
       expect(mockedSend).toHaveBeenNthCalledWith(2, {
         type: 'game-state',
@@ -651,6 +663,7 @@ describe('gameStore', () => {
         type: 'rematch-start',
         seed: newMatch.seed,
         dealer: 1,
+        options: DEFAULT_MATCH_OPTIONS,
       });
 
       mockedSend.mockClear();
@@ -660,6 +673,7 @@ describe('gameStore', () => {
         type: 'rematch-start',
         seed: newMatch.seed,
         dealer: 1,
+        options: DEFAULT_MATCH_OPTIONS,
       });
 
       // Unrelated foreign seed is still strictly ignored
@@ -773,6 +787,128 @@ describe('gameStore', () => {
       expect(rematched.dealer).toBe(1);
       expect(useGameStore.getState().rematchReady).toEqual([false, false]);
       expect(mockedSend).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('table customization, player names, and reactions', () => {
+    it('initGame applies custom match options and rejects mid-match rule tampering via resync', () => {
+      useGameStore.getState().initGame('opts-seed', 0, {
+        targetScore: 1500,
+        capotEnabled: true,
+      });
+      expect(useGameStore.getState().gameState!.options).toEqual({
+        targetScore: 1500,
+        capotEnabled: true,
+      });
+
+      // A peer snapshot with altered match options is rejected even with higher sequenceNumber.
+      const tampered = structuredClone(useGameStore.getState().gameState!);
+      tampered.sequenceNumber = 5;
+      tampered.options = { targetScore: 500, capotEnabled: false };
+      useGameStore.getState().receiveGameState(tampered);
+      expect(useGameStore.getState().gameState!.sequenceNumber).toBe(0);
+      expect(useGameStore.getState().gameState!.options).toEqual({
+        targetScore: 1500,
+        capotEnabled: true,
+      });
+    });
+
+    it('preserves custom match options across P2P rematches and bot games', () => {
+      const gameOver = makeGameOverState('custom-rematch-seed', 0, 120);
+      gameOver.options = { targetScore: 500, capotEnabled: true };
+      useGameStore.setState({ gameState: gameOver, isHost: true, localPlayer: 0 });
+
+      useGameStore.getState().requestRematch();
+      useGameStore.getState().receiveRematchReady();
+
+      const rematched = useGameStore.getState().gameState!;
+      expect(rematched.options).toEqual({ targetScore: 500, capotEnabled: true });
+      expect(mockedSend).toHaveBeenLastCalledWith({
+        type: 'rematch-start',
+        seed: rematched.seed,
+        dealer: 1,
+        options: { targetScore: 500, capotEnabled: true },
+      });
+
+      // Bot game inherits lobby matchOptions.
+      useGameStore.getState().setMatchOptions({ targetScore: 1500, capotEnabled: true });
+      useGameStore.getState().startBotGame('smart');
+      expect(useGameStore.getState().gameState!.options).toEqual({
+        targetScore: 1500,
+        capotEnabled: true,
+      });
+    });
+
+    it('exchanges and sanitizes player-info names', () => {
+      useGameStore.setState({ localPlayer: 0 });
+      useGameStore.getState().setLocalPlayerName('  Jean-Luc  ');
+      expect(useGameStore.getState().localPlayerName).toBe('Jean-Luc');
+      expect(useGameStore.getState().playerNames).toEqual(['Jean-Luc', null]);
+
+      useGameStore.getState().sendPlayerInfo();
+      expect(mockedSend).toHaveBeenCalledWith({
+        type: 'player-info',
+        name: 'Jean-Luc',
+      });
+
+      // Remote name is trimmed and truncated to 20 chars
+      useGameStore.getState().receivePlayerInfo('  Camille-Marie-Antoinette-Extra  ');
+      expect(useGameStore.getState().playerNames).toEqual(['Jean-Luc', 'Camille-Marie-Antoin']);
+
+      // Blank remote name resets to null fallback
+      useGameStore.getState().receivePlayerInfo('   ');
+      expect(useGameStore.getState().playerNames).toEqual(['Jean-Luc', null]);
+    });
+
+    it('sendReaction broadcasts valid reactions and enforces the 2-second cooldown', () => {
+      useGameStore.setState({ localPlayer: 0 });
+
+      const t0 = 10_000;
+      expect(useGameStore.getState().sendReaction('bien-joue', t0)).toBe(true);
+      expect(mockedSend).toHaveBeenCalledWith({ type: 'reaction', id: 'bien-joue' });
+      expect(useGameStore.getState().activeReactions[0]?.id).toBe('bien-joue');
+
+      // Within 2s cooldown -> blocked
+      mockedSend.mockClear();
+      expect(useGameStore.getState().sendReaction('aie', t0 + REACTION_COOLDOWN_MS - 1)).toBe(false);
+      expect(mockedSend).not.toHaveBeenCalled();
+      expect(useGameStore.getState().activeReactions[0]?.id).toBe('bien-joue');
+
+      // After 2s cooldown -> allowed
+      expect(useGameStore.getState().sendReaction('merci', t0 + REACTION_COOLDOWN_MS)).toBe(true);
+      expect(mockedSend).toHaveBeenCalledWith({ type: 'reaction', id: 'merci' });
+      expect(useGameStore.getState().activeReactions[0]?.id).toBe('merci');
+    });
+
+    it('receiveReaction validates against the allowlist, enforces receive rate limit, and clearReaction checks nonce', () => {
+      useGameStore.setState({ localPlayer: 0 });
+
+      // Unknown or malformed reaction IDs are ignored
+      useGameStore.getState().receiveReaction('not-a-valid-reaction', 10_000);
+      useGameStore.getState().receiveReaction('<script>alert(1)</script>', 10_000);
+      useGameStore.getState().receiveReaction(42, 10_000);
+      expect(useGameStore.getState().activeReactions[1]).toBeNull();
+
+      // Valid reaction ID is accepted on opponent slot
+      useGameStore.getState().receiveReaction('joli-coup', 10_000);
+      const first = useGameStore.getState().activeReactions[1];
+      expect(first?.id).toBe('joli-coup');
+      expect(first?.sender).toBe(1);
+
+      // Rapid flood within 1s receive cooldown is ignored
+      useGameStore.getState().receiveReaction('aie', 10_500);
+      expect(useGameStore.getState().activeReactions[1]?.id).toBe('joli-coup');
+
+      // Newer reaction after receive cooldown replaces older; clearing with old nonce does not wipe newer reaction
+      useGameStore.getState().receiveReaction('a-toi', 11_000);
+      const second = useGameStore.getState().activeReactions[1];
+      expect(second?.id).toBe('a-toi');
+
+      useGameStore.getState().clearReaction(1, first!.nonce);
+      expect(useGameStore.getState().activeReactions[1]?.id).toBe('a-toi');
+
+      useGameStore.getState().clearReaction(1, second!.nonce);
+      expect(useGameStore.getState().activeReactions[1]).toBeNull();
     });
   });
 });

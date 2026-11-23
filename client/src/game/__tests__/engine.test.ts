@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { createInitialState, applyAction, startNewRound } from '../engine';
+import { createDeck } from '../deck';
 import { getPlayableCards } from '../validation';
-import { cardToString } from '../types';
+import { cardToString, DEFAULT_MATCH_OPTIONS } from '../types';
 import type { GameState, PlayerID, Suit, Card, PlayerTableau } from '../types';
 
 describe('createInitialState', () => {
@@ -545,5 +546,98 @@ describe('belote', () => {
     state = applyAction(state, 1, { type: 'play-card', card: 'Q_spades' });
     expect(state.beloteDeclared[1]).toBe(true);
     expect(state.rebeloteDeclared[1]).toBe(true);
+  });
+});
+
+describe('match options (targetScore & capot)', () => {
+  const c = (rank: Card['rank'], suit: Suit): Card => ({ rank, suit });
+  const EMPTY_TABLEAU: PlayerTableau = [
+    { faceDown: null, faceUp: null },
+    { faceDown: null, faceUp: null },
+    { faceDown: null, faceUp: null },
+    { faceDown: null, faceUp: null },
+  ];
+
+  function playFinalTrick(
+    options: Partial<{ targetScore: 500 | 1000 | 1500; capotEnabled: boolean }>,
+    initialGameScore: [number, number],
+    sweepAllByPlayer1 = false,
+  ): GameState {
+    const initial = createInitialState('options-test', 0, options);
+    const playing = applyAction(initial, initial.currentPlayer, { type: 'bid-take' });
+    const s = structuredClone(playing);
+    s.trumpSuit = 'hearts';
+    s.taker = 1;
+    s.gameScore = [...initialGameScore];
+    s.tableau = [EMPTY_TABLEAU, EMPTY_TABLEAU];
+    s.hands[1] = [c('J', 'hearts')];
+    s.hands[0] = [c('7', 'spades')];
+    s.currentTrick = { cards: [null, null], leader: 1 };
+    s.currentPlayer = 1;
+
+    const remaining30 = createDeck().filter(
+      (card) =>
+        !(card.suit === 'hearts' && card.rank === 'J') &&
+        !(card.suit === 'spades' && card.rank === '7'),
+    );
+
+    // Populate 15 completed tricks so playing this trick finishes the round (trick 16).
+    s.tricks = Array.from({ length: 15 }, (_, idx) => ({
+      cards: [remaining30[idx * 2], remaining30[idx * 2 + 1]] as [Card, Card],
+      leader: 1 as PlayerID,
+      winner: (sweepAllByPlayer1 || idx > 0 ? 1 : 0) as PlayerID,
+    }));
+    s.tricksWon = sweepAllByPlayer1
+      ? [[], [...remaining30]]
+      : [remaining30.slice(0, 2), remaining30.slice(2)];
+
+    let next = applyAction(s, 1, { type: 'play-card', card: 'J_hearts' });
+    next = applyAction(next, 0, { type: 'play-card', card: '7_spades' });
+    return next;
+  }
+
+  it('defaults to targetScore 1000 and capotEnabled false', () => {
+    const state = createInitialState('defaults-test', 0);
+    expect(state.options).toEqual(DEFAULT_MATCH_OPTIONS);
+  });
+
+  it('preserves custom options across startNewRound', () => {
+    const state = createInitialState('preserve-options', 0, {
+      targetScore: 1500,
+      capotEnabled: true,
+    });
+    const nextRound = startNewRound(state);
+    expect(nextRound.options).toEqual({ targetScore: 1500, capotEnabled: true });
+  });
+
+  it('ends the match at custom targetScore 500', () => {
+    const finished = playFinalTrick({ targetScore: 500 }, [0, 420]);
+    expect(finished.phase).toBe('game-over');
+    expect(finished.gameScore[1]).toBeGreaterThanOrEqual(500);
+  });
+
+  it('continues past 1000 when targetScore is 1500 and ends once 1500 is reached', () => {
+    const midMatch = playFinalTrick({ targetScore: 1500 }, [0, 950]);
+    expect(midMatch.phase).toBe('round-over');
+    expect(midMatch.gameScore[1]).toBeGreaterThan(1000);
+    expect(midMatch.gameScore[1]).toBeLessThan(1500);
+
+    const finished = playFinalTrick({ targetScore: 1500 }, [0, 1400]);
+    expect(finished.phase).toBe('game-over');
+    expect(finished.gameScore[1]).toBeGreaterThanOrEqual(1500);
+  });
+
+  it('applies 252-point capot in endRound only when capotEnabled is true', () => {
+    const withCapot = playFinalTrick({ targetScore: 1000, capotEnabled: true }, [0, 0], true);
+    expect(withCapot.phase).toBe('round-over');
+    expect(withCapot.roundScores[0].capot).toBe(true);
+    expect(withCapot.roundScores[0].finalPoints).toEqual([0, 252]);
+    expect(withCapot.gameScore).toEqual([0, 252]);
+
+    const withoutCapot = playFinalTrick({ targetScore: 1000, capotEnabled: false }, [0, 0], true);
+    expect(withoutCapot.phase).toBe('round-over');
+    expect(withoutCapot.roundScores[0].capot).toBe(false);
+    expect(withoutCapot.roundScores[0].finalPoints).toEqual([0, 162]);
+    expect(withoutCapot.gameScore).toEqual([0, 162]);
   });
 });

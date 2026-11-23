@@ -34,11 +34,26 @@ export interface Trick {
   winner?: PlayerID;
 }
 
+export type TargetScore = 500 | 1000 | 1500;
+
+export const TARGET_SCORES: readonly TargetScore[] = [500, 1000, 1500];
+
+export interface MatchOptions {
+  targetScore: TargetScore;
+  capotEnabled: boolean;
+}
+
+export const DEFAULT_MATCH_OPTIONS: MatchOptions = {
+  targetScore: 1000,
+  capotEnabled: false,
+};
+
 export interface RoundScore {
   trickPoints: [number, number];
   beloteBonus: [number, number];
   lastTrickBonus: [number, number];
   dedans: boolean;
+  capot?: boolean;
   taker: PlayerID;
   trumpSuit: Suit;
   finalPoints: [number, number];
@@ -67,6 +82,7 @@ export interface GameState {
 
   roundScores: RoundScore[];
   gameScore: [number, number];
+  options: MatchOptions;
 
   sequenceNumber: number;
 }

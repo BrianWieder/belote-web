@@ -12,6 +12,7 @@ import { OpponentHand } from './OpponentHand';
 import { Tableau } from './Tableau';
 import { Scoreboard, RoundSummary, GameOver } from './Scoreboard';
 import { TrumpAnnouncement } from './TrumpAnnouncement';
+import { ReactionPill, ReactionPopoverButton } from './TableReactions';
 import type { PlayerID } from '../game/types';
 
 interface GameBoardProps {
@@ -99,8 +100,11 @@ export function GameBoard({ onReturnToLobby }: GameBoardProps) {
       className="tapis-surface flex flex-col justify-between h-full text-[#efe9dc] select-none overflow-y-auto overflow-x-hidden overscroll-y-contain px-2 sm:px-4 pt-[max(0.625rem,env(safe-area-inset-top))] ultra-short:pt-[max(0.375rem,env(safe-area-inset-top))] pb-[max(0.85rem,env(safe-area-inset-bottom))] ultra-short:pb-[max(0.4rem,env(safe-area-inset-bottom))]"
     >
       {/* Top section: Scoreboard + Opponent zone */}
-      <div className="flex flex-col items-center gap-2 ultra-short:gap-1">
-        <Scoreboard onLeave={isBotMode ? handleReturnToLobby : undefined} />
+      <div className="relative flex flex-col items-center gap-2 ultra-short:gap-1">
+        <div className="w-full max-w-lg flex items-center gap-2">
+          <Scoreboard onLeave={isBotMode ? handleReturnToLobby : undefined} />
+          {!isBotMode && <ReactionPopoverButton />}
+        </div>
 
         {isReconnecting && !isModalOpen && (
           <div
@@ -148,6 +152,8 @@ export function GameBoard({ onReturnToLobby }: GameBoardProps) {
             <Tableau player={opponent} />
           </div>
         )}
+
+        {!isBotMode && <ReactionPill player={opponent} side="top" />}
       </div>
 
       {/* Center table: Bidding or Trick mat */}
@@ -158,6 +164,7 @@ export function GameBoard({ onReturnToLobby }: GameBoardProps) {
 
       {/* Bottom section: Local player tableau + hand */}
       <div className="relative flex flex-col items-center gap-2.5 tall-sm:gap-3 ultra-short:gap-1">
+        {!isBotMode && <ReactionPill player={localPlayer} side="bottom" />}
         {showTwoTapHint && (
           <div
             data-testid="two-tap-hint"

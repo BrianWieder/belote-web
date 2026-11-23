@@ -1,4 +1,5 @@
-import type { Card, Suit, Rank, PlayerID, RoundScore } from './types';
+import type { Card, Suit, Rank, PlayerID, RoundScore, MatchOptions } from './types';
+import { DEFAULT_MATCH_OPTIONS } from './types';
 
 const TRUMP_VALUES: Record<Rank, number> = {
   'J': 20, '9': 14, 'A': 11, '10': 10, 'K': 4, 'Q': 3, '8': 0, '7': 0,
@@ -60,14 +61,12 @@ export function calculateRoundScore(
   beloteDeclared: [boolean, boolean],
   rebeloteDeclared: [boolean, boolean],
   lastTrickWinner: PlayerID,
+  options: MatchOptions = DEFAULT_MATCH_OPTIONS,
 ): RoundScore {
   const trickPts: [number, number] = [
     trickPoints(tricksWon[0], trumpSuit),
     trickPoints(tricksWon[1], trumpSuit),
   ];
-
-  const lastTrickBonusPts: [number, number] = [0, 0];
-  lastTrickBonusPts[lastTrickWinner] = 10;
 
   const beloteBonusPts: [number, number] = [0, 0];
   for (const p of [0, 1] as PlayerID[]) {
@@ -76,6 +75,38 @@ export function calculateRoundScore(
       beloteBonusPts[p] = 20;
     }
   }
+
+  // Capot: when enabled and one player wins all 16 tricks (all 32 cards, opponent 0).
+  // Standard French Belote awards 252 points (152 card points + 100 capot bonus replacing
+  // the 10-point dix de der), plus 20 belote if declared by the capot winner.
+  const capotWinner: PlayerID | null = options.capotEnabled
+    ? tricksWon[0].length === 32 && tricksWon[1].length === 0
+      ? 0
+      : tricksWon[1].length === 32 && tricksWon[0].length === 0
+        ? 1
+        : null
+    : null;
+
+  if (capotWinner !== null) {
+    const capotLoser: PlayerID = capotWinner === 0 ? 1 : 0;
+    const finalPoints: [number, number] = [0, 0];
+    finalPoints[capotWinner] = 252 + beloteBonusPts[capotWinner];
+    finalPoints[capotLoser] = 0;
+
+    return {
+      trickPoints: trickPts,
+      beloteBonus: beloteBonusPts,
+      lastTrickBonus: [0, 0],
+      dedans: capotWinner !== taker,
+      capot: true,
+      taker,
+      trumpSuit,
+      finalPoints,
+    };
+  }
+
+  const lastTrickBonusPts: [number, number] = [0, 0];
+  lastTrickBonusPts[lastTrickWinner] = 10;
 
   const rawPoints: [number, number] = [
     trickPts[0] + lastTrickBonusPts[0] + beloteBonusPts[0],
@@ -104,6 +135,7 @@ export function calculateRoundScore(
     beloteBonus: beloteBonusPts,
     lastTrickBonus: lastTrickBonusPts,
     dedans,
+    capot: false,
     taker,
     trumpSuit,
     finalPoints,
