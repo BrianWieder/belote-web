@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { createDeck } from '../deck';
 import { cardValue, trickWinner, trickPoints, calculateRoundScore } from '../scoring';
 import type { Card, Suit } from '../types';
 
@@ -199,5 +200,88 @@ describe('calculateRoundScore', () => {
     expect(score.dedans).toBe(true);
     expect(score.finalPoints[0]).toBe(0);
     expect(score.finalPoints[1]).toBe(182);
+  });
+
+  it('does not apply capot bonus when capotEnabled is false (default)', () => {
+    const all32 = createDeck();
+    const score = calculateRoundScore(
+      [all32, []],
+      0, 'hearts',
+      [false, false], [false, false],
+      0,
+      { targetScore: 1000, capotEnabled: false },
+    );
+    expect(score.capot).toBe(false);
+    expect(score.dedans).toBe(false);
+    expect(score.lastTrickBonus).toEqual([10, 0]);
+    expect(score.finalPoints).toEqual([162, 0]);
+  });
+
+  it('awards 252 points and marks capot when capotEnabled is true and taker wins all 16 tricks', () => {
+    const all32 = createDeck();
+    const score = calculateRoundScore(
+      [all32, []],
+      0, 'hearts',
+      [false, false], [false, false],
+      0,
+      { targetScore: 1000, capotEnabled: true },
+    );
+    expect(score.capot).toBe(true);
+    expect(score.dedans).toBe(false);
+    expect(score.trickPoints).toEqual([152, 0]);
+    expect(score.lastTrickBonus).toEqual([0, 0]);
+    expect(score.finalPoints).toEqual([252, 0]);
+  });
+
+  it('adds 20 belote bonus to capot winner, while loser with 0 tricks still scores 0 belote', () => {
+    const all32 = createDeck();
+    const winnerBelote = calculateRoundScore(
+      [all32, []],
+      0, 'hearts',
+      [true, false], [true, false],
+      0,
+      { targetScore: 1000, capotEnabled: true },
+    );
+    expect(winnerBelote.capot).toBe(true);
+    expect(winnerBelote.beloteBonus).toEqual([20, 0]);
+    expect(winnerBelote.finalPoints).toEqual([272, 0]);
+
+    const loserBelote = calculateRoundScore(
+      [all32, []],
+      0, 'hearts',
+      [false, true], [false, true],
+      0,
+      { targetScore: 1000, capotEnabled: true },
+    );
+    expect(loserBelote.capot).toBe(true);
+    expect(loserBelote.beloteBonus).toEqual([0, 0]);
+    expect(loserBelote.finalPoints).toEqual([252, 0]);
+  });
+
+  it('awards 252 points and marks dedans when defender sweeps all 16 tricks with capot enabled', () => {
+    const all32 = createDeck();
+    const score = calculateRoundScore(
+      [[], all32],
+      0, 'hearts',
+      [false, false], [false, false],
+      1,
+      { targetScore: 1000, capotEnabled: true },
+    );
+    expect(score.capot).toBe(true);
+    expect(score.dedans).toBe(true);
+    expect(score.finalPoints).toEqual([0, 252]);
+  });
+
+  it('uses normal scoring when capotEnabled is true but both players win tricks', () => {
+    const all32 = createDeck();
+    const score = calculateRoundScore(
+      [all32.slice(0, 30), all32.slice(30)],
+      0, 'hearts',
+      [false, false], [false, false],
+      0,
+      { targetScore: 1000, capotEnabled: true },
+    );
+    expect(score.capot).toBe(false);
+    expect(score.lastTrickBonus).toEqual([10, 0]);
   });
 });

@@ -1,14 +1,41 @@
 import { create } from 'zustand';
-import type { GameState, GameAction, PlayerID, Card } from '../game/types';
+import type { GameState, GameAction, PlayerID, Card, MatchOptions } from '../game/types';
+import { DEFAULT_MATCH_OPTIONS } from '../game/types';
 import type { BotDifficulty } from '../game/bot';
+import type { ReactionId } from '../game/reactions';
+import {
+  isValidReactionId,
+  REACTION_COOLDOWN_MS,
+  REACTION_DISPLAY_MS,
+} from '../game/reactions';
 import { createInitialState, applyAction, startNewRound } from '../game/engine';
 import { getPlayableCards } from '../game/validation';
 import { sendPeerMessage } from '../networking/peer';
 import { addGameBreadcrumb, setGameContext } from '../telemetry';
-import { isValidGameState, isValidResumableGameState, saveHostGame } from './savedGame';
+import {
+  isValidGameState,
+  isValidResumableGameState,
+  normalizeGameState,
+  sanitizeMatchOptions,
+  saveHostGame,
+} from './savedGame';
+import { loadPlayerName, sanitizePlayerName, savePlayerName } from './playerName';
 import { loadTwoTapPlay, saveTwoTapPlay } from './preferences';
 
 export type GameMode = 'p2p' | 'bot';
+
+// Receive-side per-peer reaction throttle (slightly below sender cooldown so legitimate
+// consecutive reactions pass even with network jitter, while stopping rapid spam).
+const REMOTE_REACTION_COOLDOWN_MS = 1000;
+
+let reactionNonce = 0;
+
+export interface ActiveReaction {
+  id: ReactionId;
+  sender: PlayerID;
+  nonce: number;
+  expiresAt: number;
+}
 
 function persistIfHost(
   gameState: GameState,
@@ -28,6 +55,10 @@ function generateMatchSeed(): string {
     return crypto.randomUUID();
   }
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+}
+
+function matchOptionsEqual(a: MatchOptions, b: MatchOptions): boolean {
+  return a.targetScore === b.targetScore && a.capotEnabled === b.capotEnabled;
 }
 
 export type ConnectionStatus =
@@ -54,7 +85,20 @@ interface GameStore {
   hostGameSaved: boolean;
   roundReady: [boolean, boolean];
   rematchReady: [boolean, boolean];
-  pendingRematchStart: { previousSeed: string; seed: string; dealer: PlayerID } | null;
+  pendingRematchStart: {
+    previousSeed: string;
+    seed: string;
+    dealer: PlayerID;
+    options: MatchOptions;
+  } | null;
+
+  // Table customization & social
+  matchOptions: MatchOptions;
+  localPlayerName: string;
+  playerNames: [string | null, string | null];
+  activeReactions: [ActiveReaction | null, ActiveReaction | null];
+  lastReactionSentAt: number;
+  lastRemoteReactionAt: number;
 
   // UI preferences & interaction state
   twoTapPlay: boolean;
@@ -70,13 +114,20 @@ interface GameStore {
   setLocalPlayer: (player: PlayerID) => void;
   setPendingResumeState: (state: GameState | null) => void;
   setBotDifficulty: (difficulty: BotDifficulty) => void;
+  setMatchOptions: (partial: Partial<MatchOptions>) => void;
+  setLocalPlayerName: (name: string) => void;
+  sendPlayerInfo: () => void;
+  receivePlayerInfo: (name: unknown) => void;
+  sendReaction: (id: ReactionId, now?: number) => boolean;
+  receiveReaction: (id: unknown, now?: number) => void;
+  clearReaction: (player: PlayerID, nonce: number) => void;
   setTwoTapPlay: (enabled: boolean) => void;
   toggleTwoTapPlay: () => void;
   setSelectedCardKey: (key: string | null) => void;
 
   startBotGame: (difficulty?: BotDifficulty, dealer?: PlayerID) => void;
   performBotAction: (action: GameAction) => void;
-  initGame: (seed: string, dealer: PlayerID) => void;
+  initGame: (seed: string, dealer: PlayerID, options?: Partial<MatchOptions>) => void;
   hydrateGame: (state: GameState) => void;
   receiveResumeGame: (state: GameState) => void;
   performAction: (action: GameAction) => void;
@@ -87,7 +138,7 @@ interface GameStore {
   receiveNextRound: (seq?: number) => void;
   requestRematch: () => void;
   receiveRematchReady: () => void;
-  receiveRematchStart: (seed: string, dealer: PlayerID) => void;
+  receiveRematchStart: (seed: string, dealer: PlayerID, options?: Partial<MatchOptions>) => void;
   requestResync: () => void;
   sendFullState: () => void;
   receiveGameState: (state: GameState) => void;
@@ -96,6 +147,8 @@ interface GameStore {
   getPlayableCards: () => Card[];
   isMyTurn: () => boolean;
 }
+
+const initialLocalPlayerName = loadPlayerName();
 
 export const useGameStore = create<GameStore>((set, get) => ({
   connectionStatus: 'disconnected',
@@ -112,33 +165,122 @@ export const useGameStore = create<GameStore>((set, get) => ({
   roundReady: [false, false],
   rematchReady: [false, false],
   pendingRematchStart: null,
+  matchOptions: { ...DEFAULT_MATCH_OPTIONS },
+  localPlayerName: initialLocalPlayerName,
+  playerNames: [initialLocalPlayerName || null, null],
+  activeReactions: [null, null],
+  lastReactionSentAt: 0,
+  lastRemoteReactionAt: 0,
   twoTapPlay: loadTwoTapPlay(),
   selectedCardKey: null,
 
   setConnectionStatus: (status) => set({ connectionStatus: status }),
   setConnectionError: (err) => set({ connectionError: err }),
-  resetConnection: () => set({
-    connectionStatus: 'disconnected',
-    connectionError: null,
-    roomCode: null,
-    reconnectToken: null,
-    isHost: false,
-    localPlayer: 0,
-    gameMode: 'p2p',
-    gameState: null,
-    pendingResumeState: null,
-    hostGameSaved: false,
-    roundReady: [false, false],
-    rematchReady: [false, false],
-    pendingRematchStart: null,
-    selectedCardKey: null,
-  }),
+  resetConnection: () => {
+    const localName = sanitizePlayerName(get().localPlayerName) || null;
+    set({
+      connectionStatus: 'disconnected',
+      connectionError: null,
+      roomCode: null,
+      reconnectToken: null,
+      isHost: false,
+      localPlayer: 0,
+      gameMode: 'p2p',
+      gameState: null,
+      pendingResumeState: null,
+      hostGameSaved: false,
+      roundReady: [false, false],
+      rematchReady: [false, false],
+      pendingRematchStart: null,
+      playerNames: [localName, null],
+      activeReactions: [null, null],
+      lastReactionSentAt: 0,
+      lastRemoteReactionAt: 0,
+      selectedCardKey: null,
+    });
+  },
   setRoomCode: (code) => set({ roomCode: code }),
   setReconnectToken: (token) => set({ reconnectToken: token }),
   setIsHost: (isHost) => set({ isHost }),
-  setLocalPlayer: (player) => set({ localPlayer: player }),
+  setLocalPlayer: (player) => {
+    const { localPlayer, localPlayerName, playerNames } = get();
+    const localName = sanitizePlayerName(localPlayerName) || null;
+    const nextNames: [string | null, string | null] =
+      player === localPlayer ? [...playerNames] : [null, null];
+    nextNames[player] = localName;
+    set({ localPlayer: player, playerNames: nextNames });
+  },
   setPendingResumeState: (state) => set({ pendingResumeState: state }),
   setBotDifficulty: (difficulty) => set({ botDifficulty: difficulty }),
+  setMatchOptions: (partial) =>
+    set((state) => ({
+      matchOptions: sanitizeMatchOptions({ ...state.matchOptions, ...partial }),
+    })),
+  setLocalPlayerName: (name) => {
+    const sanitized = savePlayerName(name);
+    const { localPlayer, playerNames } = get();
+    const nextNames: [string | null, string | null] = [...playerNames];
+    nextNames[localPlayer] = sanitized || null;
+    set({ localPlayerName: sanitized, playerNames: nextNames });
+  },
+  sendPlayerInfo: () => {
+    if (get().gameMode === 'bot') return;
+    const name = sanitizePlayerName(get().localPlayerName);
+    sendPeerMessage({ type: 'player-info', name });
+  },
+  receivePlayerInfo: (name) => {
+    const { localPlayer, playerNames, gameMode } = get();
+    if (gameMode === 'bot') return;
+    const remotePlayer: PlayerID = localPlayer === 0 ? 1 : 0;
+    const sanitized = sanitizePlayerName(name);
+    const nextNames: [string | null, string | null] = [...playerNames];
+    nextNames[remotePlayer] = sanitized.length > 0 ? sanitized : null;
+    set({ playerNames: nextNames });
+  },
+  sendReaction: (id, now = Date.now()) => {
+    if (!isValidReactionId(id)) return false;
+    const { lastReactionSentAt, localPlayer, activeReactions, gameMode } = get();
+    if (lastReactionSentAt > 0 && now - lastReactionSentAt < REACTION_COOLDOWN_MS) return false;
+
+    const nonce = ++reactionNonce;
+    const nextReactions: [ActiveReaction | null, ActiveReaction | null] = [...activeReactions];
+    nextReactions[localPlayer] = {
+      id,
+      sender: localPlayer,
+      nonce,
+      expiresAt: now + REACTION_DISPLAY_MS,
+    };
+    set({ lastReactionSentAt: now, activeReactions: nextReactions });
+    if (gameMode !== 'bot') {
+      sendPeerMessage({ type: 'reaction', id });
+    }
+    return true;
+  },
+  receiveReaction: (id, now = Date.now()) => {
+    if (!isValidReactionId(id)) return;
+    const { localPlayer, activeReactions, lastRemoteReactionAt, gameMode } = get();
+    if (gameMode === 'bot') return;
+    if (lastRemoteReactionAt > 0 && now - lastRemoteReactionAt < REMOTE_REACTION_COOLDOWN_MS) {
+      return;
+    }
+    const remotePlayer: PlayerID = localPlayer === 0 ? 1 : 0;
+    const nonce = ++reactionNonce;
+    const nextReactions: [ActiveReaction | null, ActiveReaction | null] = [...activeReactions];
+    nextReactions[remotePlayer] = {
+      id,
+      sender: remotePlayer,
+      nonce,
+      expiresAt: now + REACTION_DISPLAY_MS,
+    };
+    set({ activeReactions: nextReactions, lastRemoteReactionAt: now });
+  },
+  clearReaction: (player, nonce) => {
+    const { activeReactions } = get();
+    if (activeReactions[player]?.nonce !== nonce) return;
+    const nextReactions: [ActiveReaction | null, ActiveReaction | null] = [...activeReactions];
+    nextReactions[player] = null;
+    set({ activeReactions: nextReactions });
+  },
   setTwoTapPlay: (enabled) => {
     saveTwoTapPlay(enabled);
     set((state) => ({
@@ -162,8 +304,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
           ? 1
           : 0
         : 1);
+    const resolvedOptions = sanitizeMatchOptions(prev.matchOptions);
     const seed = generateMatchSeed();
-    const state = createInitialState(seed, resolvedDealer);
+    const state = createInitialState(seed, resolvedDealer, resolvedOptions);
+    const localName = sanitizePlayerName(prev.localPlayerName) || null;
 
     set({
       gameMode: 'bot',
@@ -180,6 +324,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
       roundReady: [false, false],
       rematchReady: [false, false],
       pendingRematchStart: null,
+      playerNames: [localName, null],
+      activeReactions: [null, null],
+      lastReactionSentAt: 0,
+      lastRemoteReactionAt: 0,
       selectedCardKey: null,
     });
     setGameContext(state, 0, 'bot');
@@ -203,10 +351,16 @@ export const useGameStore = create<GameStore>((set, get) => ({
     addGameBreadcrumb(`Bot action: ${action.type}`, 'info', action);
   },
 
-  initGame: (seed, dealer) => {
-    const { isHost, localPlayer, gameMode } = get();
+  initGame: (seed, dealer, options) => {
+    const { isHost, localPlayer, gameMode, localPlayerName, playerNames } = get();
     if (gameMode === 'bot') return;
-    const state = createInitialState(seed, dealer);
+    const resolvedOptions =
+      options !== undefined
+        ? sanitizeMatchOptions({ ...DEFAULT_MATCH_OPTIONS, ...options })
+        : { ...DEFAULT_MATCH_OPTIONS };
+    const state = createInitialState(seed, dealer, resolvedOptions);
+    const nextNames: [string | null, string | null] = [...playerNames];
+    nextNames[localPlayer] = sanitizePlayerName(localPlayerName) || null;
     const saved = persistIfHost(state, isHost, localPlayer, 'p2p');
     set({
       gameMode: 'p2p',
@@ -216,6 +370,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
       roundReady: [false, false],
       rematchReady: [false, false],
       pendingRematchStart: null,
+      playerNames: nextNames,
+      activeReactions: [null, null],
       selectedCardKey: null,
     });
     setGameContext(state, localPlayer, 'p2p');
@@ -223,21 +379,26 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   hydrateGame: (state) => {
-    const { isHost, localPlayer, gameMode } = get();
+    const { isHost, localPlayer, gameMode, localPlayerName, playerNames } = get();
     if (gameMode === 'bot') return;
-    const saved = persistIfHost(state, isHost, localPlayer, 'p2p');
+    const normalized = normalizeGameState(state);
+    const nextNames: [string | null, string | null] = [...playerNames];
+    nextNames[localPlayer] = sanitizePlayerName(localPlayerName) || null;
+    const saved = persistIfHost(normalized, isHost, localPlayer, 'p2p');
     set({
       gameMode: 'p2p',
-      gameState: state,
+      gameState: normalized,
       pendingResumeState: null,
       hostGameSaved: saved,
       roundReady: [false, false],
       rematchReady: [false, false],
       pendingRematchStart: null,
+      playerNames: nextNames,
+      activeReactions: [null, null],
       selectedCardKey: null,
     });
-    setGameContext(state, localPlayer, 'p2p');
-    addGameBreadcrumb(`Game resumed (seed: ${state.seed}, seq: ${state.sequenceNumber})`);
+    setGameContext(normalized, localPlayer, 'p2p');
+    addGameBreadcrumb(`Game resumed (seed: ${normalized.seed}, seq: ${normalized.sequenceNumber})`);
   },
 
   receiveResumeGame: (state) => {
@@ -245,7 +406,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     // Only a joining guest with no active game should accept a resumed match snapshot.
     if (gameMode === 'bot' || gameState || isHost) return;
     if (!isValidResumableGameState(state)) return;
-    get().hydrateGame(state);
+    get().hydrateGame(normalizeGameState(state));
   },
 
   performAction: (action) => {
@@ -326,6 +487,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         type: 'rematch-start',
         seed: pendingRematchStart.seed,
         dealer: pendingRematchStart.dealer,
+        options: pendingRematchStart.options,
       });
     }
     sendPeerMessage({ type: 'game-state', state: gameState });
@@ -356,13 +518,20 @@ export const useGameStore = create<GameStore>((set, get) => ({
           type: 'rematch-start',
           seed: pendingRematchStart.seed,
           dealer: pendingRematchStart.dealer,
+          options: pendingRematchStart.options,
         });
         sendPeerMessage({ type: 'game-state', state: gameState });
       }
       return;
     }
-    const confirmedRematch = pendingRematchStart?.seed === state.seed;
-    if (state.sequenceNumber < gameState.sequenceNumber) {
+    const normalized = normalizeGameState(state);
+    const establishedOptions = gameState.options ?? DEFAULT_MATCH_OPTIONS;
+    // Reject snapshots that alter the established match rules mid-match.
+    if (!matchOptionsEqual(normalized.options, establishedOptions)) {
+      return;
+    }
+    const confirmedRematch = pendingRematchStart?.seed === normalized.seed;
+    if (normalized.sequenceNumber < gameState.sequenceNumber) {
       if (confirmedRematch) {
         set({ pendingRematchStart: null });
       }
@@ -370,43 +539,43 @@ export const useGameStore = create<GameStore>((set, get) => ({
       return;
     }
     if (gameState.phase === 'game-over') {
-      if (state.phase === 'game-over' && rematchReady[localPlayer]) {
+      if (normalized.phase === 'game-over' && rematchReady[localPlayer]) {
         sendPeerMessage({ type: 'rematch-ready' });
       }
       return;
     }
     // Never revert an already-advanced round back to round-over at the same sequence number.
     if (
-      state.phase === 'round-over' &&
+      normalized.phase === 'round-over' &&
       gameState.phase !== 'round-over' &&
-      state.sequenceNumber === gameState.sequenceNumber
+      normalized.sequenceNumber === gameState.sequenceNumber
     ) {
       return;
     }
 
-    const saved = persistIfHost(state, isHost, localPlayer, gameMode);
+    const saved = persistIfHost(normalized, isHost, localPlayer, gameMode);
     const keepRoundReady =
       gameState.phase === 'round-over' &&
-      state.phase === 'round-over' &&
-      state.sequenceNumber === gameState.sequenceNumber &&
-      state.roundScores.length === gameState.roundScores.length;
+      normalized.phase === 'round-over' &&
+      normalized.sequenceNumber === gameState.sequenceNumber &&
+      normalized.roundScores.length === gameState.roundScores.length;
     const nextRoundReady: [boolean, boolean] = keepRoundReady ? roundReady : [false, false];
 
     set({
-      gameState: state,
+      gameState: normalized,
       hostGameSaved: saved,
       selectedCardKey: null,
       roundReady: nextRoundReady,
       rematchReady: [false, false],
       pendingRematchStart: confirmedRematch ? null : pendingRematchStart,
     });
-    setGameContext(state, localPlayer, gameMode);
+    setGameContext(normalized, localPlayer, gameMode);
     addGameBreadcrumb('Received full state resync');
 
     // Re-advertise local round readiness after a same-round resync so both peers
     // reconcile if an earlier round-ready message was dropped across a disconnect.
-    if (state.phase === 'round-over' && nextRoundReady[localPlayer]) {
-      sendPeerMessage({ type: 'round-ready', round: state.roundScores.length });
+    if (normalized.phase === 'round-over' && nextRoundReady[localPlayer]) {
+      sendPeerMessage({ type: 'round-ready', round: normalized.roundScores.length });
     }
   },
 
@@ -543,11 +712,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
       const previousSeed = gameState.seed;
       const seed = generateMatchSeed();
       const dealer: PlayerID = gameState.dealer === 0 ? 1 : 0;
-      get().initGame(seed, dealer);
+      const options = sanitizeMatchOptions(gameState.options ?? DEFAULT_MATCH_OPTIONS);
+      get().initGame(seed, dealer, options);
       // Retain rematch-start metadata until the guest is confirmed on the new match so
       // reconnects or dropped packets replay rematch-start seamlessly.
-      set({ pendingRematchStart: { previousSeed, seed, dealer } });
-      sendPeerMessage({ type: 'rematch-start', seed, dealer });
+      set({ pendingRematchStart: { previousSeed, seed, dealer, options } });
+      sendPeerMessage({ type: 'rematch-start', seed, dealer, options });
       return;
     }
 
@@ -564,6 +734,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         type: 'rematch-start',
         seed: pendingRematchStart.seed,
         dealer: pendingRematchStart.dealer,
+        options: pendingRematchStart.options,
       });
       sendPeerMessage({ type: 'game-state', state: gameState });
       return;
@@ -580,21 +751,23 @@ export const useGameStore = create<GameStore>((set, get) => ({
       const previousSeed = gameState.seed;
       const seed = generateMatchSeed();
       const dealer: PlayerID = gameState.dealer === 0 ? 1 : 0;
-      get().initGame(seed, dealer);
-      set({ pendingRematchStart: { previousSeed, seed, dealer } });
-      sendPeerMessage({ type: 'rematch-start', seed, dealer });
+      const options = sanitizeMatchOptions(gameState.options ?? DEFAULT_MATCH_OPTIONS);
+      get().initGame(seed, dealer, options);
+      set({ pendingRematchStart: { previousSeed, seed, dealer, options } });
+      sendPeerMessage({ type: 'rematch-start', seed, dealer, options });
       return;
     }
 
     set({ rematchReady: nextReady });
   },
 
-  receiveRematchStart: (seed, dealer) => {
+  receiveRematchStart: (seed, dealer, options) => {
     const { gameState, isHost, localPlayer, rematchReady, gameMode } = get();
     if (gameMode === 'bot' || isHost || !gameState || gameState.phase !== 'game-over') return;
     if (!rematchReady[localPlayer]) return;
     if (!seed || (dealer !== 0 && dealer !== 1)) return;
-    get().initGame(seed, dealer);
+    const resolvedOptions = options ?? gameState.options ?? DEFAULT_MATCH_OPTIONS;
+    get().initGame(seed, dealer, resolvedOptions);
   },
 
   getPlayableCards: () => {

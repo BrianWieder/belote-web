@@ -6,6 +6,7 @@ export interface ScoreLedgerRow {
   taker: PlayerID;
   takerLabel: 'You' | 'Opp';
   dedans: boolean;
+  capot: boolean;
   myBelote: boolean;
   oppBelote: boolean;
   beloteOwner: 'you' | 'opp' | null;
@@ -63,6 +64,7 @@ export function buildScoreLedger(
       taker: round.taker,
       takerLabel: round.taker === localPlayer ? 'You' : 'Opp',
       dedans: round.dedans,
+      capot: Boolean(round.capot),
       myBelote,
       oppBelote,
       beloteOwner,

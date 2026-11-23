@@ -1,17 +1,24 @@
 import { getSocket, sendSignal, SERVER_URL } from './signaling';
-import { isValidGameState, isValidResumableGameState } from '../store/savedGame';
-import type { GameAction, GameState, Rank, Suit } from '../game/types';
+import {
+  isValidGameState,
+  isValidMatchOptions,
+  isValidResumableGameState,
+} from '../store/savedGame';
+import { isValidReactionId, type ReactionId } from '../game/reactions';
+import type { GameAction, GameState, MatchOptions, Rank, Suit } from '../game/types';
 
 export type PeerMessage =
-  | { type: 'sync-seed'; seed: string; dealer: 0 | 1 }
+  | { type: 'sync-seed'; seed: string; dealer: 0 | 1; options?: MatchOptions }
   | { type: 'resume-game'; state: GameState }
   | { type: 'game-action'; action: GameAction; seq: number }
   | { type: 'new-round'; seq?: number }
   | { type: 'round-ready'; round: number }
   | { type: 'rematch-ready' }
-  | { type: 'rematch-start'; seed: string; dealer: 0 | 1 }
+  | { type: 'rematch-start'; seed: string; dealer: 0 | 1; options?: MatchOptions }
   | { type: 'resync-request' }
-  | { type: 'game-state'; state: GameState };
+  | { type: 'game-state'; state: GameState }
+  | { type: 'player-info'; name: string }
+  | { type: 'reaction'; id: ReactionId };
 
 export type PeerStatus = 'connecting' | 'connected' | 'disconnected';
 
@@ -429,7 +436,8 @@ export function isPeerMessage(value: unknown): value is PeerMessage {
       return (
         typeof msg.seed === 'string' &&
         msg.seed.length > 0 &&
-        (msg.dealer === 0 || msg.dealer === 1)
+        (msg.dealer === 0 || msg.dealer === 1) &&
+        (msg.options === undefined || isValidMatchOptions(msg.options))
       );
     case 'resume-game':
       return isValidResumableGameState(msg.state);
@@ -445,12 +453,17 @@ export function isPeerMessage(value: unknown): value is PeerMessage {
       return (
         typeof msg.seed === 'string' &&
         msg.seed.length > 0 &&
-        (msg.dealer === 0 || msg.dealer === 1)
+        (msg.dealer === 0 || msg.dealer === 1) &&
+        (msg.options === undefined || isValidMatchOptions(msg.options))
       );
     case 'resync-request':
       return true;
     case 'game-state':
       return isValidGameState(msg.state);
+    case 'player-info':
+      return typeof msg.name === 'string';
+    case 'reaction':
+      return isValidReactionId(msg.id);
     default:
       return false;
   }

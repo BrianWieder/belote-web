@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   getNextPlayableIndex,
   isEditableTarget,
+  isMenuTarget,
   resolveBiddingShortcut,
 } from '../useKeyboardShortcuts';
 
@@ -82,5 +83,33 @@ describe('isEditableTarget', () => {
     expect(isEditableTarget({ tagName: 'BODY' })).toBe(false);
     expect(isEditableTarget(null)).toBe(false);
     expect(isEditableTarget(undefined)).toBe(false);
+  });
+});
+
+describe('isMenuTarget', () => {
+  it('detects menu and menuitem targets and descendants inside a reaction menu', () => {
+    expect(
+      isMenuTarget({ getAttribute: (name: string) => (name === 'role' ? 'menuitem' : null) }),
+    ).toBe(true);
+    expect(
+      isMenuTarget({ getAttribute: (name: string) => (name === 'role' ? 'menu' : null) }),
+    ).toBe(true);
+    expect(
+      isMenuTarget({
+        getAttribute: () => null,
+        closest: (selector: string) => selector.includes('reaction-menu') || selector.includes('role="menu"'),
+      }),
+    ).toBe(true);
+  });
+
+  it('returns false for ordinary buttons outside menus', () => {
+    expect(
+      isMenuTarget({
+        tagName: 'BUTTON',
+        getAttribute: () => null,
+        closest: () => null,
+      }),
+    ).toBe(false);
+    expect(isMenuTarget(null)).toBe(false);
   });
 });

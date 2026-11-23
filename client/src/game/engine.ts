@@ -1,10 +1,18 @@
-import type { Card, PlayerID, GameState, GameAction, Suit, Trick, PlayerTableau, Rank } from './types';
-import { stringToCard } from './types';
+import type {
+  Card,
+  PlayerID,
+  GameState,
+  GameAction,
+  Suit,
+  Trick,
+  PlayerTableau,
+  Rank,
+  MatchOptions,
+} from './types';
+import { DEFAULT_MATCH_OPTIONS, stringToCard } from './types';
 import { createDeck, shuffleDeck } from './deck';
 import { trickWinner, calculateRoundScore } from './scoring';
 import { isCardPlayable, isBeloteCard, hasBelotePair } from './validation';
-
-const GAME_TARGET = 1000;
 
 function otherPlayer(p: PlayerID): PlayerID {
   return p === 0 ? 1 : 0;
@@ -37,7 +45,16 @@ function dealTableau(state: GameState): void {
   }
 }
 
-export function createInitialState(seed: string, dealer: PlayerID): GameState {
+export function createInitialState(
+  seed: string,
+  dealer: PlayerID,
+  options?: Partial<MatchOptions>,
+): GameState {
+  const resolvedOptions: MatchOptions = {
+    ...DEFAULT_MATCH_OPTIONS,
+    ...options,
+  };
+
   const state: GameState = {
     phase: 'bidding-round1',
     seed,
@@ -58,6 +75,7 @@ export function createInitialState(seed: string, dealer: PlayerID): GameState {
     rebeloteDeclared: [false, false],
     roundScores: [],
     gameScore: [0, 0],
+    options: resolvedOptions,
     sequenceNumber: 0,
   };
 
@@ -321,6 +339,7 @@ function announceBeloteIfApplicable(state: GameState, player: PlayerID, card: Ca
 
 function endRound(state: GameState): GameState {
   const lastTrickWinner = state.tricks[state.tricks.length - 1].winner!;
+  const options = state.options ?? DEFAULT_MATCH_OPTIONS;
 
   const roundScore = calculateRoundScore(
     state.tricksWon,
@@ -329,6 +348,7 @@ function endRound(state: GameState): GameState {
     state.beloteDeclared,
     state.rebeloteDeclared,
     lastTrickWinner,
+    options,
   );
 
   state.roundScores.push(roundScore);
@@ -336,7 +356,10 @@ function endRound(state: GameState): GameState {
   state.gameScore[1] += roundScore.finalPoints[1];
 
   // Check for game over
-  if (state.gameScore[0] >= GAME_TARGET || state.gameScore[1] >= GAME_TARGET) {
+  if (
+    state.gameScore[0] >= options.targetScore ||
+    state.gameScore[1] >= options.targetScore
+  ) {
     state.phase = 'game-over';
     return state;
   }
@@ -348,6 +371,7 @@ function endRound(state: GameState): GameState {
 
 export function startNewRound(state: GameState): GameState {
   const next = structuredClone(state);
+  next.options = state.options ? { ...state.options } : { ...DEFAULT_MATCH_OPTIONS };
 
   next.dealer = otherPlayer(next.dealer);
   next.phase = 'bidding-round1';

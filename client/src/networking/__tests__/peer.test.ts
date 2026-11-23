@@ -653,6 +653,42 @@ describe('native WebRTC peer wrapper', () => {
     expect(isPeerMessage({ type: 'round-ready', round: '1' })).toBe(false);
     expect(isPeerMessage({ type: 'rematch-ready' })).toBe(true);
     expect(isPeerMessage({ type: 'rematch-start', seed: 'abc', dealer: 1 })).toBe(true);
+    expect(
+      isPeerMessage({
+        type: 'rematch-start',
+        seed: 'abc',
+        dealer: 1,
+        options: { targetScore: 1500, capotEnabled: true },
+      }),
+    ).toBe(true);
+    expect(
+      isPeerMessage({
+        type: 'rematch-start',
+        seed: 'abc',
+        dealer: 1,
+        options: { targetScore: 999, capotEnabled: true },
+      }),
+    ).toBe(false);
+    expect(
+      isPeerMessage({
+        type: 'sync-seed',
+        seed: 'abc',
+        dealer: 0,
+        options: { targetScore: 500, capotEnabled: false },
+      }),
+    ).toBe(true);
+    expect(
+      isPeerMessage({
+        type: 'sync-seed',
+        seed: 'abc',
+        dealer: 0,
+        options: { targetScore: 750, capotEnabled: false },
+      }),
+    ).toBe(false);
+    expect(isPeerMessage({ type: 'player-info', name: 'Camille' })).toBe(true);
+    expect(isPeerMessage({ type: 'player-info', name: 123 })).toBe(false);
+    expect(isPeerMessage({ type: 'reaction', id: 'bien-joue' })).toBe(true);
+    expect(isPeerMessage({ type: 'reaction', id: 'invalid' })).toBe(false);
     expect(isPeerMessage({ type: 'rematch-start', seed: '', dealer: 0 })).toBe(false);
     expect(isPeerMessage({ type: 'rematch-start', seed: 'abc', dealer: 2 })).toBe(false);
     ch.simulateMessage(JSON.stringify({ type: 'game-state', state: validState }));

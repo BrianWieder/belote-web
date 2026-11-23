@@ -6,6 +6,8 @@ export type BiddingShortcutAction = 'bid-take' | 'bid-pass';
 interface EditableTargetLike {
   tagName?: string;
   isContentEditable?: boolean;
+  getAttribute?: (name: string) => string | null;
+  closest?: (selector: string) => unknown;
 }
 
 const EDITABLE_TAGS = new Set(['INPUT', 'TEXTAREA', 'SELECT']);
@@ -16,6 +18,19 @@ export function isEditableTarget(target: unknown): boolean {
   if (el.isContentEditable) return true;
   if (typeof el.tagName === 'string' && EDITABLE_TAGS.has(el.tagName.toUpperCase())) {
     return true;
+  }
+  return false;
+}
+
+export function isMenuTarget(target: unknown): boolean {
+  if (!target || typeof target !== 'object') return false;
+  const el = target as EditableTargetLike;
+  const role = typeof el.getAttribute === 'function' ? el.getAttribute('role') : null;
+  if (role === 'menu' || role === 'menuitem') {
+    return true;
+  }
+  if (typeof el.closest === 'function') {
+    return Boolean(el.closest('[role="menu"], [data-testid="reaction-menu"]'));
   }
   return false;
 }
@@ -85,6 +100,7 @@ export function useKeyboardShortcuts({
       if (isModalOpen) return;
       if (document.querySelector('[role="dialog"][aria-modal="true"]')) return;
       if (isEditableTarget(event.target)) return;
+      if (isMenuTarget(event.target) || isMenuTarget(document.activeElement)) return;
 
       if (event.key === 'Escape' && hasSelectedCard) {
         event.preventDefault();

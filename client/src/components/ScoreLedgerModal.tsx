@@ -10,6 +10,9 @@ interface ScoreLedgerModalProps {
   onClose: () => void;
   roundScores: readonly RoundScore[];
   localPlayer: PlayerID;
+  targetScore?: number;
+  myLabel?: string;
+  oppLabel?: string;
 }
 
 export function ScoreLedgerModal({
@@ -17,6 +20,9 @@ export function ScoreLedgerModal({
   onClose,
   roundScores,
   localPlayer,
+  targetScore = 1000,
+  myLabel = 'You',
+  oppLabel = 'Opp',
 }: ScoreLedgerModalProps) {
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -86,7 +92,8 @@ export function ScoreLedgerModal({
           <div className="tapis-ring rounded-xl px-5 py-8 text-center">
             <p className="font-display text-base text-[#efe9dc]">No completed rounds yet.</p>
             <p className="text-xs text-[#a4bba9] mt-1">
-              Each finished round will be tallied here with running totals to 1,000.
+              Each finished round will be tallied here with running totals to{' '}
+              {targetScore.toLocaleString()}.
             </p>
           </div>
         ) : (
@@ -109,13 +116,13 @@ export function ScoreLedgerModal({
                   <th scope="col" className="py-2.5 px-2 font-semibold text-right">
                     <div>Round</div>
                     <div className="text-[9px] normal-case tracking-normal font-normal text-[#73907c]">
-                      You / Opp
+                      {myLabel} / {oppLabel}
                     </div>
                   </th>
                   <th scope="col" className="py-2.5 pl-2 pr-3 font-semibold text-right">
                     <div>Total</div>
                     <div className="text-[9px] normal-case tracking-normal font-normal text-[#73907c]">
-                      You / Opp
+                      {myLabel} / {oppLabel}
                     </div>
                   </th>
                 </tr>
@@ -150,11 +157,16 @@ export function ScoreLedgerModal({
                               : 'text-[#a4bba9]'
                           }
                         >
-                          {row.takerLabel}
+                          {row.takerLabel === 'You' ? myLabel : oppLabel}
                         </span>
                       </td>
                       <td className="py-2 px-1.5">
                         <div className="flex flex-wrap items-center gap-1">
+                          {row.capot && (
+                            <span className="inline-flex items-center rounded-full bg-[#d4a84b]/20 border border-[#d4a84b]/55 px-1.5 py-[1px] text-[10px] font-medium text-[#e3ba62]">
+                              Capot
+                            </span>
+                          )}
                           {row.dedans && (
                             <span className="inline-flex items-center rounded-full bg-[#5c1619]/75 border border-[#e45a5e]/40 px-1.5 py-[1px] text-[10px] font-medium text-[#f7b4b6]">
                               Dedans
@@ -163,14 +175,14 @@ export function ScoreLedgerModal({
                           {row.beloteOwner && (
                             <span
                               title={`Belote & Rebelote (+20) by ${
-                                row.beloteOwner === 'you' ? 'You' : 'Opponent'
+                                row.beloteOwner === 'you' ? myLabel : oppLabel
                               }`}
                               className="inline-flex items-center rounded-full bg-[#d4a84b]/20 border border-[#d4a84b]/45 px-1.5 py-[1px] text-[10px] font-medium text-[#e3ba62]"
                             >
                               Belote
                             </span>
                           )}
-                          {!row.dedans && !row.beloteOwner && (
+                          {!row.capot && !row.dedans && !row.beloteOwner && (
                             <span className="text-[#73907c]">&ndash;</span>
                           )}
                         </div>

@@ -7,9 +7,7 @@ import { SuitIcon } from './Card';
 import { RulesModal } from './RulesModal';
 import { ScoreLedgerModal } from './ScoreLedgerModal';
 import { SUIT_NAMES, isRedSuit } from './suits';
-import type { PlayerID } from '../game/types';
-
-const TARGET_SCORE = 1000;
+import { DEFAULT_MATCH_OPTIONS, type PlayerID } from '../game/types';
 
 interface ScoreboardProps {
   onLeave?: () => void;
@@ -20,6 +18,7 @@ export function Scoreboard({ onLeave }: ScoreboardProps = {}) {
   const muted = useSyncExternalStore(subscribeMuted, isMuted, () => false);
   const gameMode = useGameStore((s) => s.gameMode);
   const botDifficulty = useGameStore((s) => s.botDifficulty);
+  const playerNames = useGameStore((s) => s.playerNames);
   const twoTapPlay = useGameStore((s) => s.twoTapPlay);
   const toggleTwoTapPlay = useGameStore((s) => s.toggleTwoTapPlay);
   const [activeModal, setActiveModal] = useState<'rules' | 'ledger' | null>(null);
@@ -28,14 +27,18 @@ export function Scoreboard({ onLeave }: ScoreboardProps = {}) {
   if (!gameState) return null;
 
   const isBot = gameMode === 'bot';
+  const opponent: PlayerID = localPlayer === 0 ? 1 : 0;
+  const options = gameState.options ?? DEFAULT_MATCH_OPTIONS;
+  const targetScore = options.targetScore;
+  const myName = playerNames[localPlayer] ?? 'You';
   const opponentLabel = isBot
     ? `Bot (${botDifficulty === 'smart' ? 'Smart' : 'Casual'})`
-    : 'Opponent';
-  const opponent: PlayerID = localPlayer === 0 ? 1 : 0;
+    : (playerNames[opponent] ?? 'Opponent');
+  const oppLedgerLabel = isBot ? 'Bot' : (playerNames[opponent] ?? 'Opp');
   const myScore = gameState.gameScore[localPlayer];
   const oppScore = gameState.gameScore[opponent];
-  const myPct = Math.min(100, Math.round((myScore / TARGET_SCORE) * 100));
-  const oppPct = Math.min(100, Math.round((oppScore / TARGET_SCORE) * 100));
+  const myPct = Math.min(100, Math.round((myScore / targetScore) * 100));
+  const oppPct = Math.min(100, Math.round((oppScore / targetScore) * 100));
   const completedRounds = gameState.roundScores.length;
   const roundNum = completedRounds + 1;
 
@@ -43,18 +46,18 @@ export function Scoreboard({ onLeave }: ScoreboardProps = {}) {
     <>
       <header
         data-testid="scoreboard"
-        className="ardoise-bar w-full max-w-lg rounded-xl px-3.5 py-2 tall-sm:px-5 tall-sm:py-2.5 ultra-short:py-1.5"
+        className="ardoise-bar flex-1 min-w-0 rounded-xl px-3.5 py-2 tall-sm:px-5 tall-sm:py-2.5 ultra-short:py-1.5"
       >
         <div className="flex items-center gap-2 sm:gap-3">
           <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 sm:gap-3 flex-1 min-w-0">
             {/* Local player score */}
             <div className="flex flex-col items-start min-w-0">
-              <div className="flex items-center gap-1.5 text-xs text-[#a4bba9]">
-                <span>You</span>
+              <div className="flex items-center gap-1.5 text-xs text-[#a4bba9] max-w-full">
+                <span className="truncate">{myName}</span>
                 {gameState.dealer === localPlayer && (
                   <span
                     title="Dealer for this round"
-                    className="inline-flex items-center rounded-full bg-[#d4a84b]/20 border border-[#d4a84b]/45 px-1.5 py-[1px] text-[10px] font-medium text-[#e3ba62]"
+                    className="inline-flex items-center rounded-full bg-[#d4a84b]/20 border border-[#d4a84b]/45 px-1.5 py-[1px] text-[10px] font-medium text-[#e3ba62] shrink-0"
                   >
                     Dealer
                   </span>
@@ -77,7 +80,7 @@ export function Scoreboard({ onLeave }: ScoreboardProps = {}) {
                 Round {roundNum}
               </div>
               <div className="text-[11px] text-[#73907c] tabular-nums leading-tight">
-                First to 1,000
+                First to {targetScore.toLocaleString()}
               </div>
               <div className="mt-1 ultra-short:mt-0.5 flex items-center justify-center gap-1.5">
                 <button
@@ -150,16 +153,16 @@ export function Scoreboard({ onLeave }: ScoreboardProps = {}) {
 
             {/* Opponent score */}
             <div className="flex flex-col items-end min-w-0">
-              <div className="flex items-center gap-1.5 text-xs text-[#a4bba9]">
+              <div className="flex items-center justify-end gap-1.5 text-xs text-[#a4bba9] max-w-full">
                 {gameState.dealer === opponent && (
                   <span
                     title="Dealer for this round"
-                    className="inline-flex items-center rounded-full bg-[#d4a84b]/20 border border-[#d4a84b]/45 px-1.5 py-[1px] text-[10px] font-medium text-[#e3ba62]"
+                    className="inline-flex items-center rounded-full bg-[#d4a84b]/20 border border-[#d4a84b]/45 px-1.5 py-[1px] text-[10px] font-medium text-[#e3ba62] shrink-0"
                   >
                     Dealer
                   </span>
                 )}
-                <span>{opponentLabel}</span>
+                <span className="truncate">{opponentLabel}</span>
               </div>
               <div className="font-display text-lg sm:text-xl font-semibold text-[#efe9dc] tabular-nums leading-tight">
                 {oppScore}
@@ -224,12 +227,15 @@ export function Scoreboard({ onLeave }: ScoreboardProps = {}) {
         </div>
       </header>
 
-      <RulesModal open={activeModal === 'rules'} onClose={handleCloseModal} />
+      <RulesModal open={activeModal === 'rules'} onClose={handleCloseModal} options={options} />
       <ScoreLedgerModal
         open={activeModal === 'ledger'}
         onClose={handleCloseModal}
         roundScores={gameState.roundScores}
         localPlayer={localPlayer}
+        targetScore={targetScore}
+        myLabel={myName}
+        oppLabel={oppLedgerLabel}
       />
     </>
   );
@@ -245,6 +251,7 @@ interface DialogDisconnectProps {
 export function RoundSummary({ reconnecting, disconnected, matchSaved, onReturnToLobby }: DialogDisconnectProps) {
   const { gameState, localPlayer, roundReady, nextRound } = useGame();
   const gameMode = useGameStore((s) => s.gameMode);
+  const playerNames = useGameStore((s) => s.playerNames);
   const dialogRef = useRef<HTMLDivElement>(null);
 
   const lastScore =
@@ -262,6 +269,31 @@ export function RoundSummary({ reconnecting, disconnected, matchSaved, onReturnT
   const red = isRedSuit(lastScore.trumpSuit);
   const localReady = roundReady[localPlayer];
   const opponentReady = roundReady[opponent];
+  const myHeader = playerNames[localPlayer] ?? 'You';
+  const oppHeader = isBot ? 'Bot' : (playerNames[opponent] ?? 'Opp');
+  const takerLowerName =
+    lastScore.taker === localPlayer
+      ? (playerNames[localPlayer] ?? 'you')
+      : isBot
+        ? 'Bot'
+        : (playerNames[opponent] ?? 'opponent');
+  const takerCapName =
+    lastScore.taker === localPlayer
+      ? (playerNames[localPlayer] ?? 'You')
+      : isBot
+        ? 'Bot'
+        : (playerNames[opponent] ?? 'Opponent');
+  const capotWinner: PlayerID | null = lastScore.capot
+    ? lastScore.finalPoints[localPlayer] > lastScore.finalPoints[opponent]
+      ? localPlayer
+      : opponent
+    : null;
+  const capotWinnerName =
+    capotWinner === localPlayer
+      ? (playerNames[localPlayer] ?? 'You')
+      : isBot
+        ? 'Bot'
+        : (playerNames[opponent] ?? 'Opponent');
 
   return (
     <div
@@ -295,34 +327,57 @@ export function RoundSummary({ reconnecting, disconnected, matchSaved, onReturnT
             {SUIT_NAMES[lastScore.trumpSuit]}
           </span>
           <span>
-            trump, taken by {lastScore.taker === localPlayer ? 'you' : isBot ? 'Bot' : 'opponent'}
+            trump, taken by {takerLowerName}
           </span>
         </div>
 
-        {lastScore.dedans && (
+        {lastScore.capot && capotWinner !== null && (
+          <div
+            data-testid="capot-badge"
+            className="mb-4 rounded-xl bg-[#d4a84b]/15 border border-[#d4a84b]/55 px-3.5 py-2.5 text-xs sm:text-sm text-[#f4dd9d] text-center"
+          >
+            <strong className="font-display text-[#e3ba62]">Capot!</strong>{' '}
+            {capotWinnerName} won all 16 tricks for {lastScore.finalPoints[capotWinner]} points
+            {lastScore.dedans ? ' (dedans).' : '.'}
+          </div>
+        )}
+
+        {lastScore.dedans && !lastScore.capot && (
           <div className="mb-4 rounded-xl bg-[#5c1619]/60 border border-[#e45a5e]/35 px-3.5 py-2.5 text-xs sm:text-sm text-[#f7b4b6] text-center">
             <strong>Dedans:</strong>{' '}
-            {lastScore.taker === localPlayer ? 'You' : isBot ? 'Bot' : 'Opponent'} fell short of the contract — all 162 points go to the defender.
+            {takerCapName} fell short of the contract — all 162 points go to the defender.
           </div>
         )}
 
         {/* Two-column score ledger */}
         <div className="tapis-ring rounded-xl p-4 mb-5 text-sm tabular-nums">
-          <div className="grid grid-cols-[1fr_3.5rem_3.5rem] gap-2 pb-2 mb-2 border-b border-[#efe9dc]/12 text-xs text-[#a4bba9]">
+          <div className="grid grid-cols-[1fr_minmax(3.5rem,5rem)_minmax(3.5rem,5rem)] gap-2 pb-2 mb-2 border-b border-[#efe9dc]/12 text-xs text-[#a4bba9]">
             <span>Breakdown</span>
-            <span className="text-right font-medium text-[#efe9dc]">You</span>
-            <span className="text-right">{isBot ? 'Bot' : 'Opp'}</span>
+            <span className="text-right font-medium text-[#efe9dc] truncate">{myHeader}</span>
+            <span className="text-right truncate">{oppHeader}</span>
           </div>
 
           <div className="space-y-1.5 text-xs sm:text-sm">
-            <div className="grid grid-cols-[1fr_3.5rem_3.5rem] gap-2">
+            <div className="grid grid-cols-[1fr_minmax(3.5rem,5rem)_minmax(3.5rem,5rem)] gap-2">
               <span className="text-[#a4bba9]">Trick points</span>
               <span className="text-right">{lastScore.trickPoints[localPlayer]}</span>
               <span className="text-right text-[#a4bba9]">{lastScore.trickPoints[opponent]}</span>
             </div>
 
+            {lastScore.capot && capotWinner !== null && (
+              <div className="grid grid-cols-[1fr_minmax(3.5rem,5rem)_minmax(3.5rem,5rem)] gap-2">
+                <span className="text-[#e3ba62]">Capot bonus</span>
+                <span className="text-right text-[#e3ba62]">
+                  {capotWinner === localPlayer ? '+100' : '–'}
+                </span>
+                <span className="text-right text-[#a4bba9]">
+                  {capotWinner === opponent ? '+100' : '–'}
+                </span>
+              </div>
+            )}
+
             {(lastScore.lastTrickBonus[0] > 0 || lastScore.lastTrickBonus[1] > 0) && (
-              <div className="grid grid-cols-[1fr_3.5rem_3.5rem] gap-2">
+              <div className="grid grid-cols-[1fr_minmax(3.5rem,5rem)_minmax(3.5rem,5rem)] gap-2">
                 <span className="text-[#a4bba9]">Last trick</span>
                 <span className="text-right">
                   {lastScore.lastTrickBonus[localPlayer] > 0
@@ -338,7 +393,7 @@ export function RoundSummary({ reconnecting, disconnected, matchSaved, onReturnT
             )}
 
             {(lastScore.beloteBonus[0] > 0 || lastScore.beloteBonus[1] > 0) && (
-              <div className="grid grid-cols-[1fr_3.5rem_3.5rem] gap-2">
+              <div className="grid grid-cols-[1fr_minmax(3.5rem,5rem)_minmax(3.5rem,5rem)] gap-2">
                 <span className="text-[#a4bba9]">Belote &amp; Rebelote</span>
                 <span className="text-right">
                   {lastScore.beloteBonus[localPlayer] > 0
@@ -354,13 +409,13 @@ export function RoundSummary({ reconnecting, disconnected, matchSaved, onReturnT
             )}
           </div>
 
-          <div className="grid grid-cols-[1fr_3.5rem_3.5rem] gap-2 pt-2.5 mt-2.5 border-t border-[#efe9dc]/12 font-display text-base font-semibold">
+          <div className="grid grid-cols-[1fr_minmax(3.5rem,5rem)_minmax(3.5rem,5rem)] gap-2 pt-2.5 mt-2.5 border-t border-[#efe9dc]/12 font-display text-base font-semibold">
             <span>Round total</span>
             <span className="text-right text-[#e3ba62]">+{lastScore.finalPoints[localPlayer]}</span>
             <span className="text-right">+{lastScore.finalPoints[opponent]}</span>
           </div>
 
-          <div className="grid grid-cols-[1fr_3.5rem_3.5rem] gap-2 pt-2 mt-2 border-t border-[#efe9dc]/10 text-xs text-[#a4bba9]">
+          <div className="grid grid-cols-[1fr_minmax(3.5rem,5rem)_minmax(3.5rem,5rem)] gap-2 pt-2 mt-2 border-t border-[#efe9dc]/10 text-xs text-[#a4bba9]">
             <span>Match score</span>
             <span className="text-right font-semibold text-[#efe9dc]">
               {gameState.gameScore[localPlayer]}
@@ -455,6 +510,7 @@ export function GameOver({ reconnecting, disconnected, onReturnToLobby }: Dialog
   const { gameState, localPlayer, rematchReady, requestRematch } = useGame();
   const gameMode = useGameStore((s) => s.gameMode);
   const botDifficulty = useGameStore((s) => s.botDifficulty);
+  const playerNames = useGameStore((s) => s.playerNames);
   const dialogRef = useRef<HTMLDivElement>(null);
   const isOpen = Boolean(gameState && gameState.phase === 'game-over');
 
@@ -463,10 +519,12 @@ export function GameOver({ reconnecting, disconnected, onReturnToLobby }: Dialog
   if (!gameState || !isOpen) return null;
 
   const isBot = gameMode === 'bot';
+  const opponent: PlayerID = localPlayer === 0 ? 1 : 0;
+  const myName = playerNames[localPlayer] ?? 'You';
   const opponentLabel = isBot
     ? `Bot (${botDifficulty === 'smart' ? 'Smart' : 'Casual'})`
-    : 'Opponent';
-  const opponent: PlayerID = localPlayer === 0 ? 1 : 0;
+    : (playerNames[opponent] ?? 'Opponent');
+  const oppHeadingName = isBot ? 'Bot' : (playerNames[opponent] ?? 'Opponent');
   const myScore = gameState.gameScore[localPlayer];
   const oppScore = gameState.gameScore[opponent];
   const isDraw = myScore === oppScore;
@@ -491,22 +549,22 @@ export function GameOver({ reconnecting, disconnected, onReturnToLobby }: Dialog
           id="game-over-heading"
           className="font-display text-3xl sm:text-4xl font-semibold mb-2"
         >
-          {isDraw ? "It's a Draw!" : won ? 'You Win!' : isBot ? 'Bot Wins' : 'Opponent Wins'}
+          {isDraw ? "It's a Draw!" : won ? 'You Win!' : `${oppHeadingName} Wins`}
         </h2>
         <p className="text-sm text-[#a4bba9] mb-5">
           {gameState.roundScores.length} {gameState.roundScores.length === 1 ? 'round' : 'rounds'} played
         </p>
 
-        <div className="tapis-ring rounded-xl py-4 px-5 mb-6 flex items-center justify-around tabular-nums">
-          <div>
-            <div className="text-xs text-[#a4bba9] mb-0.5">You</div>
+        <div className="tapis-ring rounded-xl py-4 px-5 mb-6 flex items-center justify-around gap-3 tabular-nums">
+          <div className="min-w-0">
+            <div className="text-xs text-[#a4bba9] mb-0.5 truncate max-w-[8rem]">{myName}</div>
             <div className="font-display text-3xl font-bold text-[#e3ba62]">
               {gameState.gameScore[localPlayer]}
             </div>
           </div>
-          <div className="h-8 w-px bg-[#efe9dc]/15" />
-          <div>
-            <div className="text-xs text-[#a4bba9] mb-0.5">{opponentLabel}</div>
+          <div className="h-8 w-px bg-[#efe9dc]/15 shrink-0" />
+          <div className="min-w-0">
+            <div className="text-xs text-[#a4bba9] mb-0.5 truncate max-w-[8rem]">{opponentLabel}</div>
             <div className="font-display text-3xl font-bold text-[#efe9dc]">
               {gameState.gameScore[opponent]}
             </div>
