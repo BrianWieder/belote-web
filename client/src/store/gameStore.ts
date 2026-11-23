@@ -14,13 +14,19 @@ function persistIfHost(gameState: GameState, isHost: boolean, localPlayer: Playe
   return false;
 }
 
-export type ConnectionStatus = 'disconnected' | 'in-lobby' | 'connecting' | 'connected';
+export type ConnectionStatus =
+  | 'disconnected'
+  | 'in-lobby'
+  | 'connecting'
+  | 'reconnecting'
+  | 'connected';
 
 interface GameStore {
   // Connection state
   connectionStatus: ConnectionStatus;
   connectionError: string | null;
   roomCode: string | null;
+  reconnectToken: string | null;
   isHost: boolean;
   localPlayer: PlayerID;
 
@@ -38,6 +44,7 @@ interface GameStore {
   setConnectionError: (err: string | null) => void;
   resetConnection: () => void;
   setRoomCode: (code: string | null) => void;
+  setReconnectToken: (token: string | null) => void;
   setIsHost: (isHost: boolean) => void;
   setLocalPlayer: (player: PlayerID) => void;
   setPendingResumeState: (state: GameState | null) => void;
@@ -65,6 +72,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   connectionStatus: 'disconnected',
   connectionError: null,
   roomCode: null,
+  reconnectToken: null,
   isHost: false,
   localPlayer: 0,
   gameState: null,
@@ -79,6 +87,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     connectionStatus: 'disconnected',
     connectionError: null,
     roomCode: null,
+    reconnectToken: null,
     isHost: false,
     localPlayer: 0,
     gameState: null,
@@ -87,6 +96,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     selectedCardKey: null,
   }),
   setRoomCode: (code) => set({ roomCode: code }),
+  setReconnectToken: (token) => set({ reconnectToken: token }),
   setIsHost: (isHost) => set({ isHost }),
   setLocalPlayer: (player) => set({ localPlayer: player }),
   setPendingResumeState: (state) => set({ pendingResumeState: state }),
@@ -189,13 +199,16 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   receiveGameState: (state) => {
     const { gameState, isHost, localPlayer } = get();
-    // Only accept a valid resync from a matching seed when the local game isn't
-    // already over and the incoming snapshot isn't older than our local state.
-    if (!gameState || gameState.phase === 'game-over') return;
+    // Only accept a valid resync from a matching seed; if our local state is
+    // newer, push it back so both peers converge on the latest turn.
+    if (!gameState) return;
     if (!isValidGameState(state)) return;
     if (state.seed !== gameState.seed) return;
-    if (state.sequenceNumber < gameState.sequenceNumber) return;
-
+    if (state.sequenceNumber < gameState.sequenceNumber) {
+      sendPeerMessage({ type: 'game-state', state: gameState });
+      return;
+    }
+    if (gameState.phase === 'game-over') return;
     const saved = persistIfHost(state, isHost, localPlayer);
     set({ gameState: state, hostGameSaved: saved, selectedCardKey: null });
     setGameContext(state, localPlayer);

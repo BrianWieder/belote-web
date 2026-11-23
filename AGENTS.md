@@ -60,12 +60,12 @@ Received Message → peer.on('data') → messageHandler
 | `client/src/game/validation.ts` | Legal move validation (follow suit, must trump, overtrump) |
 | `client/src/game/deck.ts` | Deck creation and seeded shuffle |
 | `client/src/store/gameStore.ts` | Zustand store: connection state + game state + actions |
-| `client/src/networking/peer.ts` | WebRTC peer connection management (simple-peer wrapper) |
-| `client/src/networking/signaling.ts` | Socket.io client for room creation/joining |
-| `client/src/hooks/usePeer.ts` | React hook for peer lifecycle (called in App.tsx, not Lobby) |
+| `client/src/networking/peer.ts` | Native WebRTC `RTCPeerConnection` + `RTCDataChannel` manager |
+| `client/src/networking/signaling.ts` | Socket.io client for room creation, joining, and reconnection |
+| `client/src/hooks/usePeer.ts` | React hook for peer lifecycle & reconnection (called in App.tsx, not Lobby) |
 | `client/src/hooks/useGame.ts` | React hook exposing game actions to components |
-| `server/src/signaling.ts` | Socket.io event handlers (create-room, join-room, signal relay) |
-| `server/src/rooms.ts` | Room CRUD with auto-cleanup |
+| `server/src/signaling.ts` | Socket.io event handlers (create-room, join-room, rejoin-room, signal relay) |
+| `server/src/rooms.ts` | Room CRUD with reconnect grace window & auto-cleanup |
 
 ### Game Phases
 
@@ -88,8 +88,7 @@ App (usePeer lives here)
 ## Gotchas
 
 - **`usePeer` must be in App.tsx**, not Lobby. If it's in Lobby, the peer connection is destroyed when Lobby unmounts (on game start), breaking guest→host communication.
-- **`simple-peer`'s `.connected` property is unreliable** under Vite 8's polyfill environment. The codebase tracks connection state with a local `peerConnected` boolean instead.
-- **Vite 8 requires `vite-plugin-node-polyfills`** for `simple-peer` to work (it depends on Node.js builtins like `events`, `buffer`, `readable-stream`). The `define: { global: 'globalThis' }` is also needed.
+- **Generation guards in `peer.ts`.** Every `RTCPeerConnection` / `RTCDataChannel` callback and async signaling step is guarded by a monotonic `generation` counter so torn-down or replaced connections cannot clobber a newer peer during reconnects or StrictMode remounts.
 - **React StrictMode** double-mounts components in dev. Effects with cleanup that destroy global resources (like peer connections) must account for this.
 
 ## Code Style

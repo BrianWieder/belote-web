@@ -105,6 +105,24 @@ describe('gameStore', () => {
     expect(useGameStore.getState().gameState!.sequenceNumber).toBe(0);
   });
 
+  it('receiveGameState rejects stale state and pushes back local newer state', () => {
+    useGameStore.getState().initGame('store-test', 1);
+    useGameStore.getState().performAction({ type: 'bid-take' });
+    mockedSend.mockClear();
+
+    const stale = structuredClone(useGameStore.getState().gameState!);
+    stale.sequenceNumber = 0;
+
+    useGameStore.getState().receiveGameState(stale);
+    expect(useGameStore.getState().gameState!.sequenceNumber).toBe(1);
+    expect(mockedSend).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'game-state',
+        state: expect.objectContaining({ sequenceNumber: 1 }),
+      }),
+    );
+  });
+
   it('sendFullState broadcasts the current game state', () => {
     useGameStore.getState().initGame('store-test', 0);
 

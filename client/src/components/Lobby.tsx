@@ -49,7 +49,7 @@ export function Lobby({ peerActions }: LobbyProps) {
   );
   const [joinCode, setJoinCode] = useState(() => initialInviteCode ?? '');
   const [error, setError] = useState('');
-  const [loadingAction, setLoadingAction] = useState<'create' | 'resume' | 'join' | null>(null);
+  const [loadingAction, setLoadingAction] = useState<'create' | 'resume' | 'join' | 'retry' | null>(null);
   const [copyCodeStatus, setCopyCodeStatus] = useState<'idle' | 'copied' | 'failed'>('idle');
   const [copyLinkStatus, setCopyLinkStatus] = useState<'idle' | 'copied' | 'failed'>('idle');
   const [savedGame, setSavedGame] = useState<SavedGameSnapshot | null>(() => loadSavedGame());
@@ -58,6 +58,7 @@ export function Lobby({ peerActions }: LobbyProps) {
   const copyCodeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const copyLinkTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const copyFeedbackGenRef = useRef(0);
+  const retryGenRef = useRef(0);
   const autoJoinAttemptedRef = useRef(false);
 
   const { hostGame, resumeGame, joinGame, cancelConnection } = peerActions;
@@ -100,14 +101,19 @@ export function Lobby({ peerActions }: LobbyProps) {
 
       if (useGameStore.getState().connectionStatus !== 'disconnected') return;
 
+      const gen = ++retryGenRef.current;
       setLoadingAction('join');
       setError('');
       void joinGame(initialInviteCode)
         .catch((e: unknown) => {
-          setError(formatJoinError(e));
+          if (retryGenRef.current === gen) {
+            setError(formatJoinError(e));
+          }
         })
         .finally(() => {
-          setLoadingAction(null);
+          if (retryGenRef.current === gen) {
+            setLoadingAction(null);
+          }
         });
     }, 0);
 
@@ -143,31 +149,45 @@ export function Lobby({ peerActions }: LobbyProps) {
   };
 
   const handleCancelConnection = () => {
+    retryGenRef.current += 1;
+    setLoadingAction(null);
     resetCopyFeedback();
     cancelConnection();
   };
 
   const handleCreate = async () => {
+    const gen = ++retryGenRef.current;
     setLoadingAction('create');
     setError('');
     try {
       await hostGame();
     } catch {
-      setError('Could not reach the signaling server. Check your connection and try again.');
+      if (retryGenRef.current === gen) {
+        setError('Could not reach the signaling server. Check your connection and try again.');
+      }
+    } finally {
+      if (retryGenRef.current === gen) {
+        setLoadingAction(null);
+      }
     }
-    setLoadingAction(null);
   };
 
   const handleResume = async () => {
     if (!savedGame) return;
+    const gen = ++retryGenRef.current;
     setLoadingAction('resume');
     setError('');
     try {
       await resumeGame(savedGame.gameState);
     } catch {
-      setError('Could not reach the signaling server. Check your connection and try again.');
+      if (retryGenRef.current === gen) {
+        setError('Could not reach the signaling server. Check your connection and try again.');
+      }
+    } finally {
+      if (retryGenRef.current === gen) {
+        setLoadingAction(null);
+      }
     }
-    setLoadingAction(null);
   };
 
   const handleDiscardSaved = () => {
@@ -180,14 +200,20 @@ export function Lobby({ peerActions }: LobbyProps) {
       setError('Enter all 4 characters of the room code.');
       return;
     }
+    const gen = ++retryGenRef.current;
     setLoadingAction('join');
     setError('');
     try {
       await joinGame(joinCode.toUpperCase());
     } catch (e) {
-      setError(formatJoinError(e));
+      if (retryGenRef.current === gen) {
+        setError(formatJoinError(e));
+      }
+    } finally {
+      if (retryGenRef.current === gen) {
+        setLoadingAction(null);
+      }
     }
-    setLoadingAction(null);
   };
 
   const handleCopyCode = async () => {
@@ -305,6 +331,25 @@ export function Lobby({ peerActions }: LobbyProps) {
   }
 
   if (connectionStatus === 'connecting') {
+    const retrying = loadingAction === 'retry';
+    const handleRetryJoin = async () => {
+      if (!roomCode || loading) return;
+      const gen = ++retryGenRef.current;
+      setLoadingAction('retry');
+      setError('');
+      try {
+        await joinGame(roomCode);
+      } catch (e) {
+        if (retryGenRef.current === gen) {
+          useGameStore.getState().setConnectionError(formatJoinError(e));
+        }
+      } finally {
+        if (retryGenRef.current === gen) {
+          setLoadingAction(null);
+        }
+      }
+    };
+
     return (
       <main className="tapis-surface h-full overflow-y-auto overscroll-y-contain flex flex-col items-center px-4 py-8">
         <div className="my-auto w-full max-w-md text-center">
@@ -329,13 +374,25 @@ export function Lobby({ peerActions }: LobbyProps) {
               </p>
             )}
 
-            <button
-              type="button"
-              onClick={cancelConnection}
-              className="text-sm text-[#a4bba9] hover:text-[#efe9dc] underline underline-offset-4 cursor-pointer transition-colors"
-            >
-              Back to lobby
-            </button>
+            <div className="flex flex-col items-center gap-3">
+              {(connectionError || retrying) && roomCode && (
+                <button
+                  type="button"
+                  onClick={handleRetryJoin}
+                  disabled={loading}
+                  className="btn-gold w-full rounded-lg px-4 py-2.5 text-sm font-semibold cursor-pointer disabled:opacity-50"
+                >
+                  {retrying ? 'Retrying…' : 'Retry connection'}
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={handleCancelConnection}
+                className="text-sm text-[#a4bba9] hover:text-[#efe9dc] underline underline-offset-4 cursor-pointer transition-colors"
+              >
+                Back to lobby
+              </button>
+            </div>
           </div>
         </div>
       </main>
