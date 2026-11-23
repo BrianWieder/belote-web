@@ -4,6 +4,9 @@ on:
     branches: [main, master]
   pull_request:
     branches: [main, master]
+concurrency:
+  group: playwright-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   test:
     timeout-minutes: 15
@@ -27,12 +30,14 @@ jobs:
           key: playwright-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}-chromium-shell
       - name: Install Playwright Chromium (cache miss)
         if: steps.playwright-cache.outputs.cache-hit != 'true'
-        run: npx playwright install --only-shell --with-deps chromium
+        run: npx playwright install --only-shell chromium
         working-directory: ./client
-      - name: Install Playwright OS dependencies (cache hit)
-        if: steps.playwright-cache.outputs.cache-hit == 'true'
-        run: npx playwright install-deps chromium
-        working-directory: ./client
+      - name: Ensure Chromium shared library dependencies
+        run: |
+          if ! ldconfig -p | grep -q 'libgbm\.so\.1'; then
+            sudo apt-get update -o Acquire::http::Timeout=15 -o Acquire::https::Timeout=15 -o Acquire::Retries=3
+            sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y --no-install-recommends libgbm1
+          fi
       - name: Run Playwright tests
         run: npx playwright test
         working-directory: ./client
