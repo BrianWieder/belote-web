@@ -256,7 +256,7 @@ async function findPlayerWithPlayableCard(hostPage: Page, guestPage: Page, timeo
   while (Date.now() - start < timeout) {
     if (await hostPage.locator('[data-playable]').first().isVisible().catch(() => false)) return hostPage;
     if (await guestPage.locator('[data-playable]').first().isVisible().catch(() => false)) return guestPage;
-    await new Promise(r => setTimeout(r, 150));
+    await new Promise(r => setTimeout(r, 30));
   }
   throw new Error('Neither player has a playable card within timeout');
 }
@@ -265,11 +265,13 @@ async function findPlayerWithPlayableCard(hostPage: Page, guestPage: Page, timeo
  * Play one trick: identify whose turn it is, play a card, then do the same for the other player.
  */
 async function playOneTrick(hostPage: Page, guestPage: Page) {
-  const firstPlayer = await findPlayerWithPlayableCard(hostPage, guestPage, 10_000);
-  await firstPlayer.locator('[data-playable]').first().click();
-  await firstPlayer.waitForTimeout(300);
-
-  const secondPlayer = await findPlayerWithPlayableCard(hostPage, guestPage, 10_000);
-  await secondPlayer.locator('[data-playable]').first().click();
-  await secondPlayer.waitForTimeout(500);
+  for (let i = 0; i < 2; i++) {
+    const player = await findPlayerWithPlayableCard(hostPage, guestPage, 10_000);
+    const card = player.locator('[data-playable]').first();
+    const cardTestId = await card.getAttribute('data-testid');
+    await card.click();
+    if (cardTestId) {
+      await expect(player.locator(`[data-playable][data-testid="${cardTestId}"]`)).toHaveCount(0);
+    }
+  }
 }
