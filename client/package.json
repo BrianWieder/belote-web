@@ -17,7 +17,6 @@
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
     "seedrandom": "^3.0.5",
-    "simple-peer": "^9.11.1",
     "socket.io-client": "^4.8.0",
     "zustand": "^5.0.0"
   },
@@ -29,7 +28,6 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@types/seedrandom": "^3.0.8",
-    "@types/simple-peer": "^9.11.8",
     "@vitejs/plugin-react": "^6.0.1",
     "eslint": "^10.2.1",
     "eslint-plugin-react-hooks": "^7.1.1",
@@ -39,7 +37,6 @@
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.58.2",
     "vite": "^8.0.10",
-    "vite-plugin-node-polyfills": "^0.26.0",
     "vitest": "^3.0.0"
   }
 }

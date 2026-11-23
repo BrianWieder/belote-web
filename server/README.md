@@ -42,12 +42,19 @@ npm test           # Run server unit tests
 
 | Event | Direction | Payload | Description |
 |-------|-----------|---------|-------------|
-| `create-room` | Client -> Server | -- | Cleans up any prior room for this socket, creates a room, returns `{ code: string }` (4-char alphanumeric) or `{ error: string }` if at capacity |
-| `join-room` | Client -> Server | `code: string` | Validates code format and joins a room (rejects self-join), returns `{ success: boolean, error?: string }` |
+| `create-room` | Client -> Server | -- | Cleans up any prior room for this socket, creates a room, returns `{ code, reconnectToken }` or `{ error }` if at capacity |
+| `join-room` | Client -> Server | `code: string` or `{ code, attemptId? }` | Validates code format and provisionally joins a room (rejects self-join; idempotent for same guest socket), returns `{ success, error?, reconnectToken? }` |
+| `confirm-join` | Client -> Server | `code: string` | Confirms a provisional guest seat after receiving the `join-room` acknowledgement so disconnects preserve the room for the 2-minute grace window |
+| `cancel-join` | Client -> Server | `code: string` or `{ code, attemptId? }` | Releases a matching provisional guest join after a client-side join timeout so the room returns to open lobby state |
+| `rejoin-room` | Client -> Server | `{ code, role, token, passive?, retry? }` | Rejoins an active room within the 2-minute disconnect grace window. Acknowledges with `{ success, error?, role?, peerPresent?, alreadyNegotiating?, negotiationId? }`. Pass `passive: true` to restore a signaling seat while the data channel is still open without triggering renegotiation, and `retry: true` when retrying after a missed acknowledgement. Clients check `peerPresent`, `alreadyNegotiating`, and `negotiationId` before creating a WebRTC peer: if `!peerPresent`, wait for `peer-reconnected`; if `peerPresent` and `!alreadyNegotiating` (or if `negotiationId` has not yet been initialized locally), start a fresh peer for `role`; if already initialized for that `negotiationId`, keep the in-progress negotiation |
+| `peer-connected` | Client -> Server | `code: string` | Marks the active renegotiation complete once the WebRTC data channel opens so a later drop on the same socket pair starts a fresh negotiation |
+| `leave-room` | Client -> Server | -- | Explicitly leaves and closes the room |
 | `peer-joined` | Server -> Host | `{ socketId }` | Notifies the host that a guest has joined |
+| `peer-join-cancelled` | Server -> Host | -- | Notifies the host that a timed-out or disconnected provisional guest join was released |
+| `peer-reconnected` | Server -> Peer | `{ role, negotiationId? }` | Notifies the waiting peer to negotiate a fresh WebRTC connection for `negotiationId` |
 | `signal` | Client -> Server | `{ roomCode, signal }` | Validates payload and relays WebRTC signaling data to the other peer in the room |
 | `signal` | Server -> Client | `{ signal, from }` | Forwarded signaling data from the other peer |
-| `peer-disconnected` | Server -> Room | -- | Notifies the remaining peer when a player disconnects or leaves |
+| `peer-disconnected` | Server -> Peer | `{ preserved }` | Notifies the remaining peer when a player disconnects (`preserved: true`) or explicitly leaves (`preserved: false`) |
 
 ## Structure
 

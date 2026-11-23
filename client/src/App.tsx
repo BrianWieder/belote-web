@@ -8,7 +8,7 @@ function App() {
   const peerActions = usePeer();
 
   if (hasGame) {
-    return <GameBoard />;
+    return <GameBoard onReturnToLobby={peerActions.cancelConnection} />;
   }
 
   return <Lobby peerActions={peerActions} />;

@@ -4,7 +4,7 @@ import { useGameFeedback } from '../hooks/useGameFeedback';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import { useGameStore } from '../store/gameStore';
 import { destroyPeer } from '../networking/peer';
-import { disconnectSignaling } from '../networking/signaling';
+import { disconnectSignaling, leaveRoom } from '../networking/signaling';
 import { BiddingUI } from './BiddingUI';
 import { PlayArea } from './PlayArea';
 import { Hand } from './Hand';
@@ -14,7 +14,11 @@ import { Scoreboard, RoundSummary, GameOver } from './Scoreboard';
 import { TrumpAnnouncement } from './TrumpAnnouncement';
 import type { PlayerID } from '../game/types';
 
-export function GameBoard() {
+interface GameBoardProps {
+  onReturnToLobby?: () => void;
+}
+
+export function GameBoard({ onReturnToLobby }: GameBoardProps) {
   useGameFeedback();
   const { gameState, localPlayer, isConnected, isMyTurn, bidTake, bidPass } = useGame();
   const connectionStatus = useGameStore((s) => s.connectionStatus);
@@ -68,10 +72,16 @@ export function GameBoard() {
   const isPlaying = gameState.phase === 'playing';
   const showTableau = isPlaying;
   const opponent: PlayerID = localPlayer === 0 ? 1 : 0;
+  const isReconnecting = connectionStatus === 'reconnecting';
   const isDisconnected = connectionStatus === 'disconnected';
   const showTwoTapHint = isPlaying && isMyTurn && isConnected && twoTapPlay && selectedCardKey !== null;
 
   const handleReturnToLobby = () => {
+    if (onReturnToLobby) {
+      onReturnToLobby();
+      return;
+    }
+    leaveRoom();
     destroyPeer();
     disconnectSignaling();
     resetConnection();
@@ -86,9 +96,28 @@ export function GameBoard() {
       <div className="flex flex-col items-center gap-2 ultra-short:gap-1">
         <Scoreboard />
 
+        {isReconnecting && !isModalOpen && (
+          <div
+            role="status"
+            aria-live="polite"
+            data-testid="reconnecting-banner"
+            className="w-full max-w-lg rounded-xl bg-[#4b3812]/90 border border-[#d4a84b]/45 px-4 py-2 text-xs sm:text-sm text-[#f4d78b] flex items-center justify-between gap-3"
+          >
+            <span>Reconnecting to opponent…</span>
+            <button
+              type="button"
+              onClick={handleReturnToLobby}
+              className="btn-slate rounded-lg px-3 py-1 text-xs font-semibold text-[#efe9dc] shrink-0 cursor-pointer"
+            >
+              Return to lobby
+            </button>
+          </div>
+        )}
+
         {isDisconnected && !isModalOpen && (
           <div
             role="alert"
+            data-testid="disconnected-banner"
             className="w-full max-w-lg rounded-xl bg-[#5c1619]/90 border border-[#e45a5e]/40 px-4 py-2 text-xs sm:text-sm text-[#f7b4b6] flex items-center justify-between gap-3"
           >
             <span>
@@ -141,11 +170,16 @@ export function GameBoard() {
       {/* Trump suit announcement & end-of-round / end-of-game dialogs */}
       <TrumpAnnouncement />
       <RoundSummary
+        reconnecting={isReconnecting}
         disconnected={isDisconnected}
         matchSaved={hostGameSaved}
         onReturnToLobby={handleReturnToLobby}
       />
-      <GameOver disconnected={isDisconnected} onReturnToLobby={handleReturnToLobby} />
+      <GameOver
+        reconnecting={isReconnecting}
+        disconnected={isDisconnected}
+        onReturnToLobby={handleReturnToLobby}
+      />
     </main>
   );
 }

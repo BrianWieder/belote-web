@@ -216,12 +216,13 @@ export function Scoreboard() {
 }
 
 interface DialogDisconnectProps {
+  reconnecting?: boolean;
   disconnected?: boolean;
   matchSaved?: boolean;
   onReturnToLobby?: () => void;
 }
 
-export function RoundSummary({ disconnected, matchSaved, onReturnToLobby }: DialogDisconnectProps) {
+export function RoundSummary({ reconnecting, disconnected, matchSaved, onReturnToLobby }: DialogDisconnectProps) {
   const { gameState, localPlayer, nextRound } = useGame();
   const dialogRef = useRef<HTMLDivElement>(null);
 
@@ -344,7 +345,24 @@ export function RoundSummary({ disconnected, matchSaved, onReturnToLobby }: Dial
           </div>
         </div>
 
-        {disconnected && onReturnToLobby ? (
+        {reconnecting && onReturnToLobby ? (
+          <div className="space-y-2.5">
+            <p
+              role="status"
+              aria-live="polite"
+              className="rounded-xl bg-[#4b3812]/80 border border-[#d4a84b]/45 px-3.5 py-2 text-xs text-[#f4d78b]"
+            >
+              Reconnecting to opponent…
+            </p>
+            <button
+              type="button"
+              onClick={onReturnToLobby}
+              className="btn-slate w-full font-semibold py-3 rounded-xl cursor-pointer"
+            >
+              Return to lobby
+            </button>
+          </div>
+        ) : disconnected && onReturnToLobby ? (
           <div className="space-y-2.5">
             <p
               role="alert"
@@ -377,7 +395,7 @@ export function RoundSummary({ disconnected, matchSaved, onReturnToLobby }: Dial
   );
 }
 
-export function GameOver({ disconnected, onReturnToLobby }: DialogDisconnectProps) {
+export function GameOver({ reconnecting, disconnected, onReturnToLobby }: DialogDisconnectProps) {
   const { gameState, localPlayer } = useGame();
   const dialogRef = useRef<HTMLDivElement>(null);
   const isOpen = Boolean(gameState && gameState.phase === 'game-over');
@@ -430,7 +448,24 @@ export function GameOver({ disconnected, onReturnToLobby }: DialogDisconnectProp
           </div>
         </div>
 
-        {disconnected && onReturnToLobby ? (
+        {reconnecting && onReturnToLobby ? (
+          <div className="space-y-2.5">
+            <p
+              role="status"
+              aria-live="polite"
+              className="rounded-xl bg-[#4b3812]/80 border border-[#d4a84b]/45 px-3.5 py-2 text-xs text-[#f4d78b]"
+            >
+              Reconnecting to opponent…
+            </p>
+            <button
+              type="button"
+              onClick={onReturnToLobby}
+              className="btn-slate w-full font-semibold py-3.5 px-8 rounded-xl cursor-pointer"
+            >
+              Return to lobby
+            </button>
+          </div>
+        ) : disconnected && onReturnToLobby ? (
           <div className="space-y-2.5">
             <p
               role="alert"

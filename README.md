@@ -97,6 +97,6 @@ Belote Maniee is a two-player French trick-taking card game using a 32-card deck
 ## Tech Stack
 
 - **Frontend**: React 19, TypeScript, Vite 8, Tailwind CSS 4, Zustand, Framer Motion
-- **Networking**: simple-peer (WebRTC), Socket.io
+- **Networking**: Native WebRTC (`RTCPeerConnection` / `RTCDataChannel`), Socket.io
 - **Server**: Express, Socket.io
 - **Testing**: Vitest (unit), Playwright (E2E)
