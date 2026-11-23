@@ -118,13 +118,26 @@ describe('signaling', () => {
     expect(resolveServerUrl('http://[::1]:3001')).toBe('http://[::1]:3001');
     expect(resolveServerUrl('https://signal.example.com')).toBe('https://signal.example.com');
     expect(resolveServerUrl('HTTPS://SIGNAL.EXAMPLE.COM')).toBe('https://signal.example.com');
+    expect(resolveServerUrl('belote-server.bwieder.com')).toBe('https://belote-server.bwieder.com');
+    expect(resolveServerUrl('belote-server.bwieder.com:8443/')).toBe(
+      'https://belote-server.bwieder.com:8443',
+    );
+    expect(resolveServerUrl('//belote-server.bwieder.com')).toBe(
+      'https://belote-server.bwieder.com',
+    );
+    expect(resolveServerUrl('localhost:3001')).toBe('http://localhost:3001');
+    expect(resolveServerUrl('127.0.0.1:3001')).toBe('http://127.0.0.1:3001');
+    expect(resolveServerUrl('[::1]:3001')).toBe('http://[::1]:3001');
     expect(resolveServerUrl('WSS://SIGNAL.EXAMPLE.COM/belote?v=1')).toBe(
       'wss://signal.example.com/belote?v=1',
     );
     expect(resolveServerUrl('wss://signal.example.com')).toBe('wss://signal.example.com');
     expect(() => resolveServerUrl('http://signal.example.com')).toThrow(/must use https/i);
     expect(() => resolveServerUrl('ws://signal.example.com')).toThrow(/must use https/i);
+    expect(() => resolveServerUrl('ftp://signal.example.com')).toThrow(/Unsupported signaling server protocol/i);
+    expect(() => resolveServerUrl('javascript:alert(1)')).toThrow(/Unsupported signaling server protocol/i);
     expect(() => resolveServerUrl('not-a-url')).toThrow(/Invalid signaling server URL/i);
+    expect(() => resolveServerUrl('bad host.example.com')).toThrow(/Invalid signaling server URL/i);
   });
 
   it('connectSignaling resolves immediately when already connected', async () => {

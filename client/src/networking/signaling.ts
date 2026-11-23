@@ -4,11 +4,45 @@ const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '[::1]']);
 
 export function resolveServerUrl(rawUrl?: string): string {
   const value = (rawUrl ?? '').trim() || 'http://localhost:3001';
-  let parsed: URL;
-  try {
-    parsed = new URL(value);
-  } catch {
+  if (/\s/.test(value)) {
     throw new Error(`Invalid signaling server URL: "${value}"`);
+  }
+
+  let parsed: URL;
+  const hasExplicitScheme = /^[a-z][a-z\d+\-.]*:\/\//i.test(value);
+  const hasNonHostScheme =
+    !hasExplicitScheme &&
+    /^[a-z][a-z\d+\-.]*:/i.test(value) &&
+    !/^[a-z][a-z\d+\-.]*:\d+(?:[/?#]|$)/i.test(value);
+
+  if (hasExplicitScheme || hasNonHostScheme) {
+    try {
+      parsed = new URL(value);
+    } catch {
+      throw new Error(`Invalid signaling server URL: "${value}"`);
+    }
+  } else {
+    // Support scheme-less hostnames (e.g. Railway's `${{server.RAILWAY_PUBLIC_DOMAIN}}`
+    // like `belote-server.bwieder.com`, or `localhost:3001` / `//signal.example.com`).
+    const hostInput = value.replace(/^\/\//, '');
+    try {
+      const candidate = new URL(`https://${hostInput}`);
+      const host = candidate.hostname.toLowerCase();
+      if (LOOPBACK_HOSTS.has(host)) {
+        parsed = new URL(`http://${hostInput}`);
+      } else if (
+        host.includes('.') &&
+        !host.startsWith('.') &&
+        !host.endsWith('.') &&
+        !host.includes('..')
+      ) {
+        parsed = candidate;
+      } else {
+        throw new Error(`Invalid signaling server URL: "${value}"`);
+      }
+    } catch {
+      throw new Error(`Invalid signaling server URL: "${value}"`);
+    }
   }
 
   const isSecure = parsed.protocol === 'https:' || parsed.protocol === 'wss:';
