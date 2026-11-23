@@ -50,6 +50,9 @@ export function usePeer() {
   const receiveResumeGame = useGameStore((s) => s.receiveResumeGame);
   const receiveAction = useGameStore((s) => s.receiveAction);
   const receiveNextRound = useGameStore((s) => s.receiveNextRound);
+  const receiveRoundReady = useGameStore((s) => s.receiveRoundReady);
+  const receiveRematchReady = useGameStore((s) => s.receiveRematchReady);
+  const receiveRematchStart = useGameStore((s) => s.receiveRematchStart);
   const sendFullState = useGameStore((s) => s.sendFullState);
   const receiveGameState = useGameStore((s) => s.receiveGameState);
 
@@ -533,6 +536,15 @@ export function usePeer() {
         case 'new-round':
           receiveNextRound(msg.seq);
           break;
+        case 'round-ready':
+          receiveRoundReady(msg.round);
+          break;
+        case 'rematch-ready':
+          receiveRematchReady();
+          break;
+        case 'rematch-start':
+          receiveRematchStart(msg.seed, msg.dealer);
+          break;
         case 'resync-request':
           sendFullState();
           break;
@@ -892,6 +904,9 @@ export function usePeer() {
         }
         case 'game-action':
         case 'new-round':
+        case 'round-ready':
+        case 'rematch-ready':
+        case 'rematch-start':
         case 'resync-request':
         case 'game-state':
           if (pendingInitialGuestConfirmRef.current) {
@@ -1418,6 +1433,9 @@ export function usePeer() {
     receiveResumeGame,
     receiveAction,
     receiveNextRound,
+    receiveRoundReady,
+    receiveRematchReady,
+    receiveRematchStart,
     sendFullState,
     receiveGameState,
   ]);
