@@ -7,33 +7,33 @@
 npm install
 
 # Client dev server (port 5173)
-cd client && npm run dev
+(cd client && npm run dev)
 
 # Server dev server (port 3001)
-cd server && npm run dev
+(cd server && npm run dev)
 
 # Run client unit tests (single run / watch)
-cd client && npm test
-cd client && npx vitest
+(cd client && npm test)
+(cd client && npx vitest)
 
 # Run a single client unit test file
-cd client && npx vitest run src/game/__tests__/engine.test.ts
+(cd client && npx vitest run src/game/__tests__/engine.test.ts)
 
 # Run client unit tests with coverage
-cd client && npm run test:coverage
+(cd client && npm run test:coverage)
 
 # Run server unit tests & typecheck
-cd server && npm test
-cd server && npm run typecheck
+(cd server && npm test)
+(cd server && npm run typecheck)
 
 # Run E2E tests (starts both servers automatically)
-cd client && npx playwright test
+(cd client && npx playwright test)
 
 # Lint client
-cd client && npm run lint
+(cd client && npm run lint)
 
 # Build client
-cd client && npm run build
+(cd client && npm run build)
 ```
 
 ## Architecture
